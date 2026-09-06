@@ -136,6 +136,20 @@ export const contact = pgTable(
     /** Business-Scoped User ID si se conoce (003). */
     waUserId: text("wa_user_id"),
     name: text("name").notNull(),
+    /**
+     * Quién puso este nombre.
+     *
+     * `perfil` = lo trajo WhatsApp y puede seguir actualizandose solo;
+     * `manual` = lo escribio una persona en el CRM y NADIE lo pisa.
+     *
+     * Existe porque las dos cosas se necesitan a la vez: un contacto que
+     * cambia su nombre de WhatsApp tiene que reflejarse (#51), y el operador
+     * que renombro a alguien como "Juan - obra Polanco" no puede perder ese
+     * trabajo con el siguiente mensaje.
+     */
+    nameSource: text("name_source", { enum: ["perfil", "manual"] })
+      .notNull()
+      .default("perfil"),
     notes: text("notes"),
     /**
      * Ficha de calificación que levanta un cerebro externo por
