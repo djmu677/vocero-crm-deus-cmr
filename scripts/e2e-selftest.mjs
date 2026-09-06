@@ -59,6 +59,22 @@ function bot(path, opts = {}) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Espera a que algo OCURRA, en vez de dormir un rato y confiar.
+ *
+ * Un `sleep` fijo convierte cualquier lentitud —la primera compilación de una
+ * ruta en `next dev`, por ejemplo— en un fallo que no significa nada. Y si se
+ * pone generoso, alarga el guion entero para todos.
+ */
+async function hasta(cond, ms = 15000, paso = 400) {
+  const fin = Date.now() + ms;
+  for (;;) {
+    if (await cond()) return true;
+    if (Date.now() > fin) return false;
+    await sleep(paso);
+  }
+}
 const PN = "PN-E2E-1";
 
 async function main() {
@@ -1238,6 +1254,115 @@ async function agendaChecks() {
       movida.res.status === 200,
       `status=${movida.res.status}`
     );
+  }
+
+  /**
+   * El agujero de INTEGRACIÓN del issue #50.
+   *
+   * Todo lo de arriba entra por `/api/bot/*`, donde quien llama YA tiene el
+   * ISO. El agente EMBEBIDO no lo tenía: al modelo solo le llegaban el prompt
+   * y el historial de TEXTO, con las etiquetas que leyó el cliente y sin año,
+   * zona ni fecha de hoy. Acertar el instante era suerte, el rechazo caía en
+   * `slot_not_offered` —de texto fijo— y la conversación repetía la lista
+   * para siempre.
+   *
+   * Y por eso este self-test no lo cazaba: el resto de 015 ejercita el
+   * gateway, nunca la conversación. Aquí hay que ENCENDER el agente
+   * in-process a propósito, y apagarlo después para no alterar lo que sigue.
+   */
+  console.log("\n== 015: el agente reserva desde la conversación (#50) ==");
+  {
+    await api("/api/agent/profile", {
+      method: "PUT",
+      body: JSON.stringify({ enabled: true }),
+    });
+    const encendido = await api("/api/agent/profile");
+    ok(
+      "el agente in-process queda encendido para esta prueba",
+      encendido.json?.profile?.enabled === true,
+      JSON.stringify(encendido.json?.profile?.enabled)
+    );
+
+    /**
+     * Contacto NUEVO en cada corrida.
+     *
+     * Con un teléfono fijo, la segunda ejecución arrastra la conversación y —
+     * sobre todo— las OFERTAS de la anterior: el mapa ya está ahí desde el
+     * primer mensaje y el agente reserva antes de ofrecer, así que el check
+     * mide otra cosa. El resto del guion asume base recién sembrada; esta
+     * sección no puede permitírselo porque compara ANTES y DESPUÉS.
+     */
+    const CORRIDA = Date.now().toString().slice(-6);
+    const LEAD_C = `5214627${CORRIDA}`;
+    const decir = (texto, n) =>
+      api("/api/dev/wa-mock/inbound", {
+        method: "POST",
+        body: JSON.stringify({
+          phoneNumberId: PN,
+          from: LEAD_C,
+          name: "Lead agenda C",
+          text: texto,
+          // Único por corrida: con un id fijo, la segunda ejecución lo
+          // deduplica en la ingesta y no entra NADA — el agente no llega a
+          // correr y el check falla sin que haya nada roto.
+          waMessageId: `wamid.e2e.015.c.${CORRIDA}.${n}`,
+        }),
+      });
+
+    await decir("quiero agendar una cita", 1);
+    await hasta(async () => {
+      const cs = (await api("/api/conversations")).json?.conversations ?? [];
+      return cs.some((c) => c.contact.phone === `524627${CORRIDA}`);
+    });
+
+    const convs = (await api("/api/conversations")).json?.conversations ?? [];
+    const convC = convs.find((c) => c.contact.phone === `524627${CORRIDA}`);
+    ok("el agente atendió al lead que pide cita", Boolean(convC));
+
+    if (convC) {
+      const salientesDe = async () => {
+        const msgs =
+          (await api(`/api/conversations/${convC.id}/messages`)).json
+            ?.messages ?? [];
+        return msgs.filter((m) => m.direction === "out");
+      };
+
+      // El agente tiene que RESPONDER; cuánto tarde no es asunto del check.
+      await hasta(async () => (await salientesDe()).length > 0);
+      const trasOferta = await salientesDe();
+      ok(
+        "el agente OFRECE horarios (hay respuesta, no silencio)",
+        trasOferta.length > 0 && /\d{2}:\d{2}/.test(trasOferta.at(-1)?.text ?? ""),
+        `salientes=${trasOferta.length} ultimo=${(trasOferta.at(-1)?.text ?? "").slice(0, 80)}`
+      );
+
+      const antes = (await api("/api/bookings")).json?.bookings ?? [];
+      await decir("quiero el primero", 2);
+      await hasta(async () => {
+        const bs = (await api("/api/bookings")).json?.bookings ?? [];
+        return bs.length > antes.length;
+      });
+
+      const despues = (await api("/api/bookings")).json?.bookings ?? [];
+      ok(
+        "elegir un horario CREA la cita (no repite la lista)",
+        despues.length > antes.length,
+        `citas antes=${antes.length} despues=${despues.length}`
+      );
+
+      /**
+       * Aquí había una tercera comprobación —«confirma en vez de volver a
+       * ofrecer»— y se quitó: pasaba TAMBIÉN con el bug puesto, porque bajo el
+       * fallo el agente responde cualquier otra cosa que tampoco contiene
+       * «estos horarios». Una comprobación que no distingue el fallo del
+       * acierto solo da confianza falsa. Lo que decide es la cita creada.
+       */
+    }
+
+    await api("/api/agent/profile", {
+      method: "PUT",
+      body: JSON.stringify({ enabled: false }),
+    });
   }
 
   console.log("\n== 015: el operador y el enlace pendiente (US4) ==");
