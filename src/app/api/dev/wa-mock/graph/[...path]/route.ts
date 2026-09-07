@@ -52,6 +52,11 @@ function invalidTokenResponse(): Response {
   );
 }
 
+/** Un teléfono de Meta es solo dígitos; un BSUID lleva prefijo y punto. */
+function esSoloDigitos(valor: string): boolean {
+  return /^[0-9]+$/.test(valor);
+}
+
 /** Quita el segmento de versión (v25.0/...) si viene en la ruta. */
 function normalizePath(path: string[]): string[] {
   return path[0] && /^v\d+/.test(path[0]) ? path.slice(1) : path;
@@ -215,6 +220,29 @@ export async function POST(req: Request, ctx: Params) {
   // POST {phoneNumberId}/messages → registra en el outbox
   if (path.length === 2 && path[1] === "messages") {
     const state = getWaMockState();
+
+    /**
+     * Meta espera un TELEFONO en `to`. Un BSUID ahi devuelve 131026 — «el
+     * destinatario no puede recibir mensajes» — y el mock lo replica.
+     *
+     * Sin esto, mandar el BSUID en el campo equivocado pasaba en verde aqui y
+     * fallaba en produccion, que es exactamente lo que ocurrio. El BSUID va
+     * en `recipient`, con `recipient_type: "individual"`.
+     */
+    const destino = body.to as string | undefined;
+    if (destino && !esSoloDigitos(destino)) {
+      return Response.json(
+        {
+          error: {
+            message:
+              "(#131026) Message undeliverable: recipient is not a valid WhatsApp user",
+            code: 131026,
+            type: "OAuthException",
+          },
+        },
+        { status: 400 }
+      );
+    }
     // Meta responde 132000 si los parámetros no cuadran con las {{n}} de la
     // plantilla aprobada. El mock lo replica para que un desfase no pase.
     if (body.type === "template") {
@@ -256,6 +284,9 @@ export async function POST(req: Request, ctx: Params) {
       waMessageId,
       phoneNumberId: path[0]!,
       to: String(body.to ?? ""),
+      // Se guarda aparte para que un self-test pueda comprobar EN QUE CAMPO
+      // viajo el destinatario, que es de lo que dependia el fallo.
+      ...(body.recipient ? { recipient: String(body.recipient) } : {}),
       type: String(body.type ?? "text"),
       body,
       at: new Date().toISOString(),
