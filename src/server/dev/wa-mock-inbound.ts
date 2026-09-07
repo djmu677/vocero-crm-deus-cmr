@@ -111,7 +111,16 @@ export function buildInboundPayload(input: {
   }
 
   const contactEntry: Record<string, unknown> = {
-    profile: { name: input.name ?? "Cliente" },
+    /**
+     * Sin nombre pedido, el payload va SIN `profile` — como el de Meta.
+     *
+     * Antes se inventaba «Cliente», y eso dejó de ser inofensivo en cuanto el
+     * nombre del contacto pasó a mantenerse al día con el perfil (#51): un
+     * segundo mensaje de la misma persona lo renombraba a «Cliente», que es
+     * algo que Meta no manda nunca. Un mock que inventa datos acaba probando
+     * su propia ficción.
+     */
+    ...(input.name ? { profile: { name: input.name } } : {}),
   };
   if (input.from) contactEntry.wa_id = input.from;
   if (input.fromUserId) contactEntry.user_id = input.fromUserId;

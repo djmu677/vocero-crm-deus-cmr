@@ -249,6 +249,53 @@ async function main() {
     );
   }
 
+  console.log("\n== #51: el nombre del contacto sigue al perfil, salvo si lo escribió alguien ==");
+  {
+    const N = Date.now().toString().slice(-6);
+    const TEL = `5214627${N}`;
+    const decir = (nombre, i) =>
+      api("/api/dev/wa-mock/inbound", {
+        method: "POST",
+        body: JSON.stringify({
+          phoneNumberId: PN,
+          from: TEL,
+          name: nombre,
+          text: `hola ${i}`,
+          waMessageId: `wamid.e2e.51.${N}.${i}`,
+        }),
+      });
+    const contactoDe = async () => {
+      const cs = (await api("/api/contacts")).json?.contacts ?? [];
+      return cs.find((c) => c.phone === `524627${N}`) ?? null;
+    };
+
+    await decir("Federico", 1);
+    await hasta(async () => Boolean(await contactoDe()));
+    const creado = await contactoDe();
+    ok("el contacto nace con el nombre del perfil", creado?.name === "Federico",
+      `nombre: ${creado?.name}`);
+
+    // El caso reportado: cambia su nombre de WhatsApp y vuelve a escribir.
+    await decir("Federicoso", 2);
+    await hasta(async () => (await contactoDe())?.name === "Federicoso");
+    ok("cambiar el nombre de WhatsApp actualiza el contacto",
+      (await contactoDe())?.name === "Federicoso",
+      `nombre: ${(await contactoDe())?.name}`);
+
+    // Y lo que NO puede pasar: que el perfil pise lo que escribió una persona.
+    const editado = await api(`/api/contacts/${creado?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: "Fede - obra Polanco" }),
+    });
+    ok("el operador puede renombrar a mano", editado.res.ok, editado.texto);
+
+    await decir("Federicoso", 3);
+    await sleep(1500);
+    ok("y WhatsApp ya no pisa ese nombre",
+      (await contactoDe())?.name === "Fede - obra Polanco",
+      `nombre: ${(await contactoDe())?.name}`);
+  }
+
   console.log("\n== us-bot-api: autorización ==");
   const noKey = await api("/api/bot/media/media123");
   ok("media sin API key → 401", noKey.res.status === 401);
