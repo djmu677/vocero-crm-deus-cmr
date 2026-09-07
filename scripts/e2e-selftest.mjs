@@ -142,10 +142,16 @@ async function main() {
   ok("respuesta a contacto BSUID enviable", reply.res.ok, JSON.stringify(reply.json));
 
   const outbox = (await api("/api/dev/wa-mock/outbox")).json?.outbox ?? [];
+  /**
+   * Esta comprobación fijaba el comportamiento EQUIVOCADO: afirmaba que el
+   * BSUID viaja en `to`. Y pasaba, porque el mock aceptaba cualquier cosa ahí
+   * — mientras Meta respondía 131026 en producción. Un test verde sobre un
+   * mock permisivo es peor que no tenerlo: convence de lo contrario.
+   */
   ok(
-    "el destinatario del envío es el BSUID",
-    outbox.some((o) => o.to === "bsu_e2e_1"),
-    JSON.stringify(outbox.map((o) => o.to))
+    "el destinatario del envío es el BSUID, en `recipient`",
+    outbox.some((o) => o.recipient === "bsu_e2e_1" && !o.to),
+    JSON.stringify(outbox.map((o) => ({ to: o.to, recipient: o.recipient })))
   );
 
   // Idempotencia: re-entrega del mismo wa_message_id
@@ -165,6 +171,37 @@ async function main() {
     [];
   const inCount = msgs.filter((m) => m.direction === "in").length;
   ok("webhook duplicado no duplica mensajes", inCount === 1, `in=${inCount}`);
+
+  console.log("\n== us-bsuid: a un contacto sin teléfono se le puede responder ==");
+  {
+    /**
+     * El caso de produccion que dejo mudo al agente de un miembro.
+     *
+     * Meta omite el telefono cuando coinciden TRES condiciones: el usuario
+     * activo su nombre de usuario, no hubo interaccion con ese numero de
+     * empresa en 30 dias, y no esta en la agenda. Entonces solo llega el
+     * BSUID — y hay que responderle por `recipient`, no por `to`: en `to`
+     * Meta espera un telefono y devuelve 131026, que en la bandeja se lee
+     * como si el numero del cliente no existiera.
+     */
+    const conv = bsuidConv;
+    if (!conv) {
+      ok("hay conversacion BSUID para responder", false, "no aparecio");
+    } else {
+      const envio = await api(`/api/conversations/${conv.id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ text: "respuesta a un BSUID" }),
+      });
+      ok("se le PUEDE responder (antes: Meta 131026)", envio.res.ok,
+        `status=${envio.res.status} ${JSON.stringify(envio.json)}`);
+
+      const outbox = (await api("/api/dev/wa-mock/outbox")).json?.outbox ?? [];
+      const salida = outbox[outbox.length - 1];
+      ok("y el BSUID viaja en `recipient`, nunca en `to`",
+        salida?.recipient === "bsu_e2e_1" && !salida?.to,
+        `to=${JSON.stringify(salida?.to)} recipient=${JSON.stringify(salida?.recipient)}`);
+    }
+  }
 
   console.log("\n== us-bsuid: reconciliación 521/52 ==");
   await api("/api/dev/wa-mock/inbound", {

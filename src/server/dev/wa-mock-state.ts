@@ -8,6 +8,13 @@ export type OutboxEntry = {
   n: number;
   phoneNumberId: string;
   to: string;
+  /**
+   * El BSUID, cuando el destinatario iba por `recipient` en vez de `to`.
+   *
+   * Se expone para que un self-test pueda comprobar EN QUE CAMPO viajo: es la
+   * unica diferencia entre el envio que Meta acepta y el que devuelve 131026.
+   */
+  recipient?: string;
   type: string;
   body: unknown;
   at: string;
