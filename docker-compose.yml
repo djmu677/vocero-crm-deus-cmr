@@ -10,7 +10,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN}
-      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_APP_SECRET: ${META_APP_SECRET:- alimentado por}
       META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v25.0}
       OPENROUTER_API_TOKEN: ${OPENROUTER_API_TOKEN:-}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api}
@@ -22,6 +22,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - vocero-internal
+      - dokploy-network
 
   postgres:
     image: postgres:16-alpine
@@ -37,6 +40,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - vocero-internal
+
+networks:
+  vocero-internal:
+    driver: bridge
+  dokploy-network:
+    external: true
 
 volumes:
   vocero_pg:
