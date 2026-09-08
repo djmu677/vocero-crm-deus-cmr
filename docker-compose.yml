@@ -1,11 +1,9 @@
-# ============================================================
-# Vocero CRM — Ruta B: app + Postgres + Caddy (HTTPS automático)
-# Uso:  cp .env.example .env  →  rellenar  →  docker compose up -d --build
-# ============================================================
 services:
   app:
     build: .
     restart: unless-stopped
+    expose:
+      - "3000"
     environment:
       APP_BASE_URL: ${APP_BASE_URL}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/vocero
@@ -18,12 +16,12 @@ services:
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
       OPENROUTER_JUDGE_MODEL: ${OPENROUTER_JUDGE_MODEL:-}
+      BOT_API_KEY: ${BOT_API_KEY}
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-}
       AGENT_COALESCE_MS: ${AGENT_COALESCE_MS:-6000}
     depends_on:
       postgres:
         condition: service_healthy
-    # el HEALTHCHECK vive en el Dockerfile (/api/health)
 
   postgres:
     image: postgres:16-alpine
@@ -40,27 +38,5 @@ services:
       timeout: 5s
       retries: 10
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - vocero_caddy_data:/data
-      - vocero_caddy_config:/config
-    depends_on:
-      - app
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
 volumes:
   vocero_pg:
-  vocero_caddy_data:
-  vocero_caddy_config:
