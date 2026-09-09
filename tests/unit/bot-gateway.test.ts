@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { requireBotKey } from "@/server/bot/auth";
 import { mergeFicha, normalizeFicha } from "@/server/bot/ficha";
 import { toHandoffReason } from "@/server/bot/handoff";
+import { resolveBotStage, type BotStage } from "@/server/bot/stage";
 import { resetRateLimit } from "@/lib/rate-limit";
 
 /** La puerta de toda la superficie `/api/bot/*`. */
@@ -135,5 +136,47 @@ describe("mergeFicha", () => {
 
   it("sin ficha previa parte de cero", () => {
     expect(mergeFicha(null, { a: 1 })).toEqual({ a: 1 });
+  });
+});
+
+describe("resolveBotStage (movimientos seguros del cerebro externo)", () => {
+  const stages: BotStage[] = [
+    { id: "nuevo", name: "Nuevo", kind: "open", position: 0 },
+    { id: "charla", name: "En conversación", kind: "open", position: 1 },
+    { id: "interes", name: "Interesado", kind: "open", position: 2 },
+    { id: "cliente", name: "Cliente", kind: "won", position: 3 },
+    { id: "perdido", name: "Perdido", kind: "lost", position: 4 },
+  ];
+
+  it("permite avanzar por nombre sin depender de mayúsculas", () => {
+    expect(resolveBotStage(" interesado ", stages[0]!, stages)).toEqual({
+      ok: true,
+      target: stages[2]!,
+    });
+  });
+
+  it("rechaza retrocesos", () => {
+    expect(resolveBotStage("Nuevo", stages[2]!, stages)).toEqual({
+      ok: false,
+      reason: "backward_stage",
+    });
+  });
+
+  it("protege las etapas ganada y perdida", () => {
+    expect(resolveBotStage("Cliente", stages[2]!, stages)).toEqual({
+      ok: false,
+      reason: "protected_stage",
+    });
+    expect(resolveBotStage("Perdido", stages[2]!, stages)).toEqual({
+      ok: false,
+      reason: "protected_stage",
+    });
+  });
+
+  it("rechaza nombres que no pertenecen al pipeline", () => {
+    expect(resolveBotStage("Inventada", stages[0]!, stages)).toEqual({
+      ok: false,
+      reason: "stage_not_found",
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
@@ -109,6 +109,21 @@ export async function GET(req: Request) {
     )
     .limit(1);
 
+  const pipelineStages = await db
+    .select({
+      name: schema.pipelineStage.name,
+      kind: schema.pipelineStage.kind,
+      position: schema.pipelineStage.position,
+    })
+    .from(schema.pipelineStage)
+    .where(
+      and(
+        eq(schema.pipelineStage.organizationId, organizationId),
+        eq(schema.pipelineStage.kind, "open")
+      )
+    )
+    .orderBy(asc(schema.pipelineStage.position));
+
   return Response.json({
     contact: {
       id: contact.id,
@@ -133,5 +148,8 @@ export async function GET(req: Request) {
     lead: leadRows[0]
       ? { id: leadRows[0].lead.id, stageName: leadRows[0].stage.name }
       : null,
+    // El cerebro externo solo ve destinos abiertos. Ganado/perdido requieren
+    // confirmación del dueño y la API de movimiento también los rechaza.
+    pipelineStages,
   });
 }
