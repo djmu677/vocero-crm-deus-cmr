@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   Users,
+  Workflow,
   X,
 } from "lucide-react";
 import type { Branding } from "@/lib/branding";
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { href: "/pipeline", label: "Pipeline", icon: Kanban },
   { href: "/contacts", label: "Contactos", icon: Users },
   { href: "/agent", label: "Agente", icon: Sparkles },
+  { href: "/automation", label: "Automatización", icon: Workflow },
   { href: "/lab", label: "Laboratorio", icon: FlaskConical },
 ];
 
