@@ -114,6 +114,8 @@ export async function GET(req: Request) {
       name: schema.pipelineStage.name,
       kind: schema.pipelineStage.kind,
       position: schema.pipelineStage.position,
+      botMoveEnabled: schema.pipelineStage.botMoveEnabled,
+      botMoveCriteria: schema.pipelineStage.botMoveCriteria,
     })
     .from(schema.pipelineStage)
     .where(

@@ -179,4 +179,27 @@ describe("resolveBotStage (movimientos seguros del cerebro externo)", () => {
       reason: "stage_not_found",
     });
   });
+
+  it("rechaza una etapa cuya automatización fue desactivada por el negocio", () => {
+    const disabled: BotStage = {
+      id: "negociacion",
+      name: "Negociación",
+      kind: "open",
+      position: 3,
+      botMoveEnabled: false,
+      botMoveCriteria: "solo cuando confirme forma de pago",
+    };
+
+    expect(resolveBotStage("Negociación", stages[0]!, [...stages, disabled])).toEqual({
+      ok: false,
+      reason: "stage_automation_disabled",
+    });
+  });
+
+  it("conserva compatibilidad con etapas anteriores sin campos de automatización", () => {
+    expect(resolveBotStage("Interesado", stages[0]!, stages)).toEqual({
+      ok: true,
+      target: stages[2]!,
+    });
+  });
 });
