@@ -3,6 +3,7 @@ import { renderKb } from "@/server/ai/prompts";
 
 type AgentProfile = typeof schema.agentProfile.$inferSelect;
 type KbEntry = typeof schema.kbEntry.$inferSelect;
+type MediaAsset = typeof schema.mediaAsset.$inferSelect;
 
 /**
  * Payload del perfil del agente para un cerebro externo.
@@ -12,7 +13,11 @@ type KbEntry = typeof schema.kbEntry.$inferSelect;
  * no por este endpoint. `resources` nace vacío para que el shape del consumidor
  * no cambie cuando existan recursos alternativos reales.
  */
-export function serializeBotProfile(profile: AgentProfile, kb: KbEntry[]) {
+export function serializeBotProfile(
+  profile: AgentProfile,
+  kb: KbEntry[],
+  mediaAssets: MediaAsset[] = []
+) {
   return {
     profile: {
       name: profile.name,
@@ -22,6 +27,20 @@ export function serializeBotProfile(profile: AgentProfile, kb: KbEntry[]) {
       greeting: profile.greeting ?? null,
     },
     kb: renderKb(kb),
+    mediaAssets: mediaAssets
+      .filter(
+        (asset) =>
+          asset.agentLibrary &&
+          asset.agentActive &&
+          (asset.kind === "image" || asset.kind === "video")
+      )
+      .map((asset) => ({
+        id: asset.id,
+        kind: asset.kind,
+        label: asset.agentLabel ?? asset.fileName ?? "Recurso",
+        usage: asset.agentUsage ?? null,
+        caption: asset.caption ?? null,
+      })),
     resources: [] as { label: string; url: string }[],
   };
 }

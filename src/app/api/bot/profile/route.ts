@@ -3,6 +3,7 @@ import { getDb, schema } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { serializeBotProfile } from "@/server/bot/profile";
+import { listAgentMedia } from "@/server/bot/media-library";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
     .from(schema.kbEntry)
     .where(eq(schema.kbEntry.organizationId, organizationId))
     .orderBy(asc(schema.kbEntry.createdAt));
+  const mediaAssets = await listAgentMedia(organizationId, { activeOnly: true });
 
-  return Response.json(serializeBotProfile(profile, kb));
+  return Response.json(serializeBotProfile(profile, kb, mediaAssets));
 }
