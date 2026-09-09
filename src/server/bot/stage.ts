@@ -5,13 +5,19 @@ export type BotStage = {
   name: string;
   kind: "open" | "won" | "lost";
   position: number;
+  botMoveEnabled?: boolean;
+  botMoveCriteria?: string | null;
 };
 
 export type BotStageDecision =
   | { ok: true; target: BotStage }
   | {
       ok: false;
-      reason: "stage_not_found" | "protected_stage" | "backward_stage";
+      reason:
+        | "stage_not_found"
+        | "protected_stage"
+        | "backward_stage"
+        | "stage_automation_disabled";
     };
 
 /**
@@ -33,6 +39,9 @@ export function resolveBotStage(
   if (!target) return { ok: false, reason: "stage_not_found" };
   if (target.kind !== "open") {
     return { ok: false, reason: "protected_stage" };
+  }
+  if (target.botMoveEnabled === false) {
+    return { ok: false, reason: "stage_automation_disabled" };
   }
   if (target.position < current.position) {
     return { ok: false, reason: "backward_stage" };

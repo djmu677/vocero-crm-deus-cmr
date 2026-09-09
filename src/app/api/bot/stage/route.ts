@@ -66,6 +66,8 @@ export async function POST(req: Request) {
       name: schema.pipelineStage.name,
       kind: schema.pipelineStage.kind,
       position: schema.pipelineStage.position,
+      botMoveEnabled: schema.pipelineStage.botMoveEnabled,
+      botMoveCriteria: schema.pipelineStage.botMoveCriteria,
     })
     .from(schema.pipelineStage)
     .where(scoped(schema.pipelineStage.organizationId, organizationId))
@@ -85,6 +87,13 @@ export async function POST(req: Request) {
         409,
         "protected_stage",
         "El bot no puede declarar un lead ganado o perdido"
+      );
+    }
+    if (decision.reason === "stage_automation_disabled") {
+      return apiError(
+        409,
+        "stage_automation_disabled",
+        "El movimiento automatico a esta etapa esta desactivado"
       );
     }
     return apiError(

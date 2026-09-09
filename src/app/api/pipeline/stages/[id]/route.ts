@@ -12,6 +12,8 @@ type Params = { params: Promise<{ id: string }> };
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   position: z.number().int().min(0).optional(),
+  botMoveEnabled: z.boolean().optional(),
+  botMoveCriteria: z.string().trim().max(2000).nullable().optional(),
 });
 
 export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
@@ -20,12 +22,44 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
   if (!body.ok) return body.response;
 
   const db = getDb();
+  const requestedBotRule =
+    body.data.botMoveEnabled !== undefined ||
+    body.data.botMoveCriteria !== undefined;
+  if (requestedBotRule) {
+    const stageRows = await db
+      .select({ kind: schema.pipelineStage.kind })
+      .from(schema.pipelineStage)
+      .where(
+        scoped(
+          schema.pipelineStage.organizationId,
+          session.organizationId,
+          eq(schema.pipelineStage.id, id)
+        )
+      )
+      .limit(1);
+    if (!stageRows[0]) {
+      return apiError(404, "not_found", "Etapa no encontrada");
+    }
+    if (stageRows[0].kind !== "open") {
+      return apiError(
+        409,
+        "protected_stage",
+        "Las reglas de NEA solo se configuran en etapas abiertas"
+      );
+    }
+  }
   const updated = await db
     .update(schema.pipelineStage)
     .set({
       ...(body.data.name !== undefined ? { name: body.data.name } : {}),
       ...(body.data.position !== undefined
         ? { position: body.data.position }
+        : {}),
+      ...(body.data.botMoveEnabled !== undefined
+        ? { botMoveEnabled: body.data.botMoveEnabled }
+        : {}),
+      ...(body.data.botMoveCriteria !== undefined
+        ? { botMoveCriteria: body.data.botMoveCriteria || null }
         : {}),
     })
     .where(

@@ -198,6 +198,15 @@ export const pipelineStage = pgTable(
     kind: text("kind", { enum: ["open", "won", "lost"] })
       .notNull()
       .default("open"),
+    /**
+     * Control del cerebro externo sobre esta etapa. El default `true` conserva
+     * exactamente el comportamiento previo a 017; el dueño puede apagar una
+     * etapa o describir evidencia comercial concreta desde Agente de IA.
+     * Ganado/perdido siguen bloqueadas por la politica del gateway aunque este
+     * valor exista en esas filas.
+     */
+    botMoveEnabled: boolean("bot_move_enabled").notNull().default(true),
+    botMoveCriteria: text("bot_move_criteria"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("stage_org_pos_idx").on(t.organizationId, t.position)]

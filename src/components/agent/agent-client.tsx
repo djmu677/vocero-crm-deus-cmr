@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { StageDto } from "@/lib/types";
 
 type Profile = {
   enabled: boolean;
@@ -30,21 +31,24 @@ export function AgentClient() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [aiConfigured, setAiConfigured] = useState(true);
   const [entries, setEntries] = useState<KbEntry[]>([]);
+  const [stages, setStages] = useState<StageDto[]>([]);
   const [kbSize, setKbSize] = useState<{ chars: number; warnAt: number; warning: boolean } | null>(null);
   const [saved, setSaved] = useState(false);
 
   const refetch = useCallback(async () => {
-    const [p, kb, size] = await Promise.all([
+    const [p, kb, size, pipeline] = await Promise.all([
       fetch("/api/agent/profile").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/kb").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/kb/size").then((r) => (r.ok ? r.json() : null)),
-    ]).catch(() => [null, null, null]);
+      fetch("/api/pipeline/stages").then((r) => (r.ok ? r.json() : null)),
+    ]).catch(() => [null, null, null, null]);
     if (p) {
       setProfile(p.profile);
       setAiConfigured(p.aiConfigured);
     }
     if (kb) setEntries(kb.entries);
     if (size) setKbSize(size);
+    if (pipeline) setStages(pipeline.stages);
   }, []);
 
   useEffect(() => {
@@ -121,8 +125,141 @@ export function AgentClient() {
       <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-2">
         <ProfileSection profile={profile} onSave={saveProfile} />
         <KbSection entries={entries} kbSize={kbSize} onChanged={() => void refetch()} />
+        <KanbanRulesSection stages={stages} onChanged={() => void refetch()} />
       </div>
     </div>
+  );
+}
+
+function KanbanRulesSection({
+  stages,
+  onChanged,
+}: {
+  stages: StageDto[];
+  onChanged: () => void;
+}) {
+  const openStages = [...stages]
+    .filter((stage) => stage.kind === "open")
+    .sort((a, b) => a.position - b.position);
+  const destinations = openStages.slice(1);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDrafts(
+      Object.fromEntries(
+        stages.map((stage) => [stage.id, stage.botMoveCriteria ?? ""])
+      )
+    );
+  }, [stages]);
+
+  async function patchStage(stage: StageDto, patch: Partial<StageDto>) {
+    setSaving(stage.id);
+    setError(null);
+    const response = await fetch(`/api/pipeline/stages/${stage.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(patch),
+    }).catch(() => null);
+    setSaving(null);
+    if (!response?.ok) {
+      const payload = (await response?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(payload?.error?.message ?? "No se pudo guardar la regla");
+      return;
+    }
+    onChanged();
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Decisiones del kanban</CardTitle>
+        <CardDescription>
+          Define a qué columnas puede mover NEA un lead y qué evidencia debe
+          aparecer en la conversación. Nunca podrá retroceder ni declarar una
+          venta ganada o perdida.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {destinations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Agrega al menos dos etapas abiertas al pipeline para configurar
+            movimientos automáticos.
+          </p>
+        ) : (
+          destinations.map((stage) => (
+            <div key={stage.id} className="rounded-lg border p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">Mover a {stage.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    NEA evaluará esta regla usando la conversación actual.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={stage.botMoveEnabled}
+                  aria-label={`Permitir movimiento automático a ${stage.name}`}
+                  disabled={saving === stage.id}
+                  onClick={() =>
+                    void patchStage(stage, {
+                      botMoveEnabled: !stage.botMoveEnabled,
+                    })
+                  }
+                  className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-40 ${
+                    stage.botMoveEnabled ? "bg-brand" : "bg-border-strong"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-knob shadow-sm transition-transform ${
+                      stage.botMoveEnabled ? "translate-x-5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                <Label htmlFor={`kanban-rule-${stage.id}`}>Cuándo mover aquí</Label>
+                <Textarea
+                  id={`kanban-rule-${stage.id}`}
+                  rows={3}
+                  maxLength={2000}
+                  disabled={!stage.botMoveEnabled}
+                  placeholder="Ejemplo: cuando pregunte por un producto concreto, confirme interés o consulte precio, colores o despacho."
+                  value={drafts[stage.id] ?? ""}
+                  onChange={(event) =>
+                    setDrafts((current) => ({
+                      ...current,
+                      [stage.id]: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {(drafts[stage.id] ?? "").length.toLocaleString("es-CL")}/2.000
+                </span>
+                <Button
+                  size="sm"
+                  disabled={saving === stage.id || !stage.botMoveEnabled}
+                  onClick={() =>
+                    void patchStage(stage, {
+                      botMoveCriteria: drafts[stage.id]?.trim() || null,
+                    })
+                  }
+                >
+                  {saving === stage.id ? "Guardando…" : "Guardar regla"}
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
