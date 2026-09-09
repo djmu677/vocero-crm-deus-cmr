@@ -27,21 +27,35 @@ type KbEntry = {
   content: string | null;
 };
 
+type AgentMedia = {
+  id: string;
+  kind: "image" | "video";
+  label: string;
+  usage: string | null;
+  caption: string | null;
+  mimeType: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  active: boolean;
+};
+
 export function AgentClient() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [aiConfigured, setAiConfigured] = useState(true);
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [stages, setStages] = useState<StageDto[]>([]);
+  const [mediaAssets, setMediaAssets] = useState<AgentMedia[]>([]);
   const [kbSize, setKbSize] = useState<{ chars: number; warnAt: number; warning: boolean } | null>(null);
   const [saved, setSaved] = useState(false);
 
   const refetch = useCallback(async () => {
-    const [p, kb, size, pipeline] = await Promise.all([
+    const [p, kb, size, pipeline, media] = await Promise.all([
       fetch("/api/agent/profile").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/kb").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/kb/size").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/pipeline/stages").then((r) => (r.ok ? r.json() : null)),
-    ]).catch(() => [null, null, null, null]);
+      fetch("/api/agent/media").then((r) => (r.ok ? r.json() : null)),
+    ]).catch(() => [null, null, null, null, null]);
     if (p) {
       setProfile(p.profile);
       setAiConfigured(p.aiConfigured);
@@ -49,6 +63,7 @@ export function AgentClient() {
     if (kb) setEntries(kb.entries);
     if (size) setKbSize(size);
     if (pipeline) setStages(pipeline.stages);
+    if (media) setMediaAssets(media.assets);
   }, []);
 
   useEffect(() => {
@@ -126,8 +141,215 @@ export function AgentClient() {
         <ProfileSection profile={profile} onSave={saveProfile} />
         <KbSection entries={entries} kbSize={kbSize} onChanged={() => void refetch()} />
         <KanbanRulesSection stages={stages} onChanged={() => void refetch()} />
+        <MediaLibrarySection
+          assets={mediaAssets}
+          onChanged={() => void refetch()}
+        />
       </div>
     </div>
+  );
+}
+
+function MediaLibrarySection({
+  assets,
+  onChanged,
+}: {
+  assets: AgentMedia[];
+  onChanged: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const [label, setLabel] = useState("");
+  const [usage, setUsage] = useState("");
+  const [caption, setCaption] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload() {
+    if (!file || !label.trim() || !usage.trim()) return;
+    setSaving(true);
+    setError(null);
+    const form = new FormData();
+    form.set("file", file);
+    form.set("label", label.trim());
+    form.set("usage", usage.trim());
+    form.set("caption", caption.trim());
+    const response = await fetch("/api/agent/media", {
+      method: "POST",
+      body: form,
+    }).catch(() => null);
+    setSaving(false);
+    if (!response?.ok) {
+      const payload = (await response?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(payload?.error?.message ?? "No se pudo guardar el recurso");
+      return;
+    }
+    setFile(null);
+    setFileInputKey((current) => current + 1);
+    setLabel("");
+    setUsage("");
+    setCaption("");
+    onChanged();
+  }
+
+  async function setActive(asset: AgentMedia, active: boolean) {
+    setUpdating(asset.id);
+    setError(null);
+    const response = await fetch(`/api/agent/media/${asset.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ active }),
+    }).catch(() => null);
+    setUpdating(null);
+    if (!response?.ok) {
+      const payload = (await response?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(payload?.error?.message ?? "No se pudo actualizar el recurso");
+      return;
+    }
+    onChanged();
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Biblioteca multimedia del agente</CardTitle>
+        <CardDescription>
+          Sube imágenes o videos aprobados y explica cuándo puede enviarlos
+          NEA. El agente no puede inventar enlaces ni usar archivos del inbox.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-media-file">Imagen o video</Label>
+            <Input
+              key={fileInputKey}
+              id="agent-media-file"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/3gpp"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Imágenes hasta 5 MB; videos hasta 16 MB.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-media-label">Nombre interno</Label>
+            <Input
+              id="agent-media-label"
+              maxLength={120}
+              placeholder="Ejemplo: Sofá Napoleón gris"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="agent-media-usage">Cuándo enviarlo</Label>
+            <Textarea
+              id="agent-media-usage"
+              rows={3}
+              maxLength={2000}
+              placeholder="Ejemplo: solo cuando el cliente pregunte por el Napoleón o solicite una foto de ese modelo."
+              value={usage}
+              onChange={(event) => setUsage(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="agent-media-caption">Pie opcional para WhatsApp</Label>
+            <Input
+              id="agent-media-caption"
+              maxLength={1024}
+              placeholder="Ejemplo: Sofá Napoleón en color gris"
+              value={caption}
+              onChange={(event) => setCaption(event.target.value)}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Button
+              disabled={saving || !file || !label.trim() || !usage.trim()}
+              onClick={() => void upload()}
+            >
+              {saving ? "Guardando…" : "Agregar a la biblioteca"}
+            </Button>
+          </div>
+        </div>
+
+        {assets.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground">
+            Aún no hay recursos aprobados para el agente.
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {assets.map((asset) => (
+              <article key={asset.id} className="overflow-hidden rounded-lg border">
+                <div className="aspect-video bg-secondary">
+                  {asset.kind === "image" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/media/${asset.id}`}
+                      alt={asset.label}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={`/api/media/${asset.id}`}
+                      controls
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+                <div className="space-y-2 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{asset.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {asset.kind === "image" ? "Imagen" : "Video"}
+                        {asset.fileSize
+                          ? ` · ${(asset.fileSize / 1024 / 1024).toFixed(1)} MB`
+                          : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={asset.active}
+                      aria-label={`${asset.active ? "Desactivar" : "Activar"} ${asset.label}`}
+                      disabled={updating === asset.id}
+                      onClick={() => void setActive(asset, !asset.active)}
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+                        asset.active ? "bg-brand" : "bg-border-strong"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-knob shadow-sm transition-transform ${
+                          asset.active ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{asset.usage}</p>
+                  {asset.caption && (
+                    <p className="text-xs text-muted-foreground">
+                      Pie: {asset.caption}
+                    </p>
+                  )}
+                  <Badge variant={asset.active ? "secondary" : "outline"}>
+                    {asset.active ? "Disponible para NEA" : "Desactivado"}
+                  </Badge>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }
 

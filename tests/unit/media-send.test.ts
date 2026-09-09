@@ -56,10 +56,11 @@ describe("validateOutgoing (límites de la Cloud API)", () => {
 
 /* ---------- Sandbox del Laboratorio en el envío de adjuntos ---------- */
 
-const { graphRequest, uploadGraphMedia, saveMediaFile } = vi.hoisted(() => ({
+const { graphRequest, uploadGraphMedia, saveMediaFile, readMediaFile } = vi.hoisted(() => ({
   graphRequest: vi.fn(),
   uploadGraphMedia: vi.fn(),
   saveMediaFile: vi.fn(),
+  readMediaFile: vi.fn(),
 }));
 
 vi.mock("@/lib/meta/client", async (importOriginal) => {
@@ -70,7 +71,7 @@ vi.mock("@/lib/meta/client", async (importOriginal) => {
 vi.mock("@/server/whatsapp/media", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/server/whatsapp/media")>();
-  return { ...original, uploadGraphMedia, saveMediaFile };
+  return { ...original, uploadGraphMedia, saveMediaFile, readMediaFile };
 });
 
 function makeChain(rows: unknown[]) {
@@ -92,7 +93,7 @@ vi.mock("@/lib/db", () => ({
     conversation: { contactId: "contactId", id: "id" },
     contact: { id: "id" },
     message: {},
-    mediaAsset: {},
+    mediaAsset: { id: "id", organizationId: "organizationId" },
   },
 }));
 
@@ -101,6 +102,7 @@ describe("sandbox del Laboratorio en el envío de adjuntos", () => {
     graphRequest.mockReset();
     uploadGraphMedia.mockReset();
     saveMediaFile.mockReset();
+    readMediaFile.mockReset();
     selectRows.length = 0;
   });
 
@@ -129,5 +131,67 @@ describe("sandbox del Laboratorio en el envío de adjuntos", () => {
     expect(saveMediaFile).not.toHaveBeenCalled();
     expect(uploadGraphMedia).not.toHaveBeenCalled();
     expect(graphRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("biblioteca multimedia del agente", () => {
+  beforeEach(() => {
+    graphRequest.mockReset();
+    uploadGraphMedia.mockReset();
+    saveMediaFile.mockReset();
+    readMediaFile.mockReset();
+    selectRows.length = 0;
+  });
+
+  it("rechaza un asset desactivado antes de leer disco o llamar a Meta", async () => {
+    selectRows.push([
+      {
+        id: "media_1",
+        organizationId: "org_1",
+        kind: "image",
+        mimeType: "image/jpeg",
+        storagePath: "org_1/media_1",
+        fetchStatus: "available",
+        agentLibrary: true,
+        agentActive: false,
+      },
+    ]);
+    const { sendStoredMediaMessage } = await import("@/server/inbox/send");
+
+    await expect(
+      sendStoredMediaMessage({
+        conversationId: "cv_1",
+        organizationId: "org_1",
+        assetId: "media_1",
+      })
+    ).rejects.toMatchObject({ code: "meta_error" });
+    expect(readMediaFile).not.toHaveBeenCalled();
+    expect(uploadGraphMedia).not.toHaveBeenCalled();
+  });
+
+  it("rechaza por defensa adicional un asset perteneciente a otro tenant", async () => {
+    selectRows.push([
+      {
+        id: "media_2",
+        organizationId: "org_2",
+        kind: "video",
+        mimeType: "video/mp4",
+        storagePath: "org_2/media_2",
+        fetchStatus: "available",
+        agentLibrary: true,
+        agentActive: true,
+      },
+    ]);
+    const { sendStoredMediaMessage } = await import("@/server/inbox/send");
+
+    await expect(
+      sendStoredMediaMessage({
+        conversationId: "cv_1",
+        organizationId: "org_1",
+        assetId: "media_2",
+      })
+    ).rejects.toMatchObject({ code: "meta_error" });
+    expect(readMediaFile).not.toHaveBeenCalled();
+    expect(uploadGraphMedia).not.toHaveBeenCalled();
   });
 });

@@ -479,6 +479,16 @@ export const mediaAsset = pgTable(
       .notNull()
       .default("pending"),
     fetchError: text("fetch_error"),
+    /**
+     * Biblioteca aprobada para el agente externo. Los adjuntos normales del
+     * inbox conservan `agent_library=false`; solo un operador autenticado
+     * puede publicar un asset para que NEA lo vea y lo envíe.
+     */
+    agentLibrary: boolean("agent_library").notNull().default(false),
+    agentActive: boolean("agent_active").notNull().default(false),
+    agentLabel: text("agent_label"),
+    /** Regla en lenguaje del negocio: producto, momento y condiciones de uso. */
+    agentUsage: text("agent_usage"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

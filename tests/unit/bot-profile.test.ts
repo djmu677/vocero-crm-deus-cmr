@@ -30,6 +30,7 @@ vi.mock("@/server/bot/auth", async (importOriginal) => {
 
 type AgentProfile = typeof schema.agentProfile.$inferSelect;
 type KbEntry = typeof schema.kbEntry.$inferSelect;
+type MediaAsset = typeof schema.mediaAsset.$inferSelect;
 
 function profileRow(overrides: Partial<AgentProfile> = {}): AgentProfile {
   return {
@@ -60,6 +61,30 @@ function qa(question: string, answer: string): KbEntry {
   };
 }
 
+function mediaRow(overrides: Partial<MediaAsset> = {}): MediaAsset {
+  return {
+    id: "media_sofa",
+    organizationId: "org_1",
+    kind: "image",
+    waMediaId: null,
+    mimeType: "image/jpeg",
+    fileName: "sofa.jpg",
+    fileSize: 1024,
+    caption: "Sofá Napoleón gris",
+    payload: null,
+    storagePath: "org_1/media_sofa",
+    fetchStatus: "available",
+    fetchError: null,
+    agentLibrary: true,
+    agentActive: true,
+    agentLabel: "Napoleón gris",
+    agentUsage: "Cuando pidan una foto del sofá Napoleón.",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
 describe("serializeBotProfile", () => {
   it("perfil completo → shape exacto del contrato", () => {
     const out = serializeBotProfile(profileRow(), [
@@ -74,6 +99,7 @@ describe("serializeBotProfile", () => {
         greeting: "¡Hola! Soy Sofi 🦷",
       },
       kb: "P: ¿Cuánto cuesta?\nR: $800.",
+      mediaAssets: [],
       resources: [],
     });
   });
@@ -102,6 +128,24 @@ describe("serializeBotProfile", () => {
 
   it("resources siempre presente y vacío mientras no haya recursos reales", () => {
     expect(serializeBotProfile(profileRow(), []).resources).toEqual([]);
+  });
+
+  it("expone solo imágenes y videos aprobados y activos", () => {
+    const out = serializeBotProfile(profileRow(), [], [
+      mediaRow(),
+      mediaRow({ id: "inactive", agentActive: false }),
+      mediaRow({ id: "inbox", agentLibrary: false }),
+      mediaRow({ id: "audio", kind: "audio" }),
+    ]);
+    expect(out.mediaAssets).toEqual([
+      {
+        id: "media_sofa",
+        kind: "image",
+        label: "Napoleón gris",
+        usage: "Cuando pidan una foto del sofá Napoleón.",
+        caption: "Sofá Napoleón gris",
+      },
+    ]);
   });
 
   it("bloques del KB van tal cual, mezclados con P/R en orden", () => {
@@ -141,12 +185,17 @@ describe("GET /api/bot/profile (ruta, DB fake)", () => {
   });
 
   it("perfil + KB → 200 con el payload del serializador", async () => {
-    dbState.queue = [[profileRow()], [qa("¿Cuánto?", "$800.")]];
+    dbState.queue = [
+      [profileRow()],
+      [qa("¿Cuánto?", "$800.")],
+      [mediaRow()],
+    ];
     const res = await GET(req(KEY));
     expect(res.status).toBe(200);
     const body = (await res.json()) as ReturnType<typeof serializeBotProfile>;
     expect(body.profile.name).toBe("Sofi");
     expect(body.kb).toBe("P: ¿Cuánto?\nR: $800.");
     expect(body.resources).toEqual([]);
+    expect(body.mediaAssets).toHaveLength(1);
   });
 });

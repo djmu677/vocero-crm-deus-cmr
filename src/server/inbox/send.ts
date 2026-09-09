@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { graphRequest, MetaApiError, normalizeRecipient } from "@/lib/meta/client";
@@ -32,6 +32,7 @@ import {
 import { isChannelEnabled } from "@/server/channels/enabled";
 import { serializeMessage } from "@/server/inbox/ingest";
 import {
+  readMediaFile,
   saveMediaFile,
   uploadGraphMedia,
   validateOutgoing,
@@ -346,7 +347,6 @@ export async function sendMediaMessage(input: {
   const kind = validateOutgoing(input.file.mimeType, input.file.data.byteLength);
 
   const target = await prepareSend(input.conversationId, input.organizationId);
-  const { credentials } = target;
   const sendCaps = capabilitiesFor(target.conversation.channel);
   if (!sendCaps.outboundMedia) {
     throw new SendError(
@@ -378,12 +378,92 @@ export async function sendMediaMessage(input: {
     .returning();
   const asset = assetRows[0]!;
 
+  return deliverMediaAsset({
+    target,
+    organizationId: input.organizationId,
+    conversationId: input.conversationId,
+    asset,
+    file: input.file,
+    caption: input.caption,
+    aiGenerated: false,
+  });
+}
+
+/** Envía un asset aprobado de la biblioteca sin duplicar su archivo en disco. */
+export async function sendStoredMediaMessage(input: {
+  conversationId: string;
+  organizationId: string;
+  assetId: string;
+}): Promise<SendResult> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(schema.mediaAsset)
+    .where(
+      and(
+        eq(schema.mediaAsset.organizationId, input.organizationId),
+        eq(schema.mediaAsset.id, input.assetId)
+      )
+    )
+    .limit(1);
+  const asset = rows[0];
+  if (
+    !asset ||
+    asset.organizationId !== input.organizationId ||
+    !asset.agentLibrary ||
+    !asset.agentActive ||
+    asset.fetchStatus !== "available" ||
+    !asset.storagePath ||
+    !asset.mimeType ||
+    (asset.kind !== "image" && asset.kind !== "video")
+  ) {
+    throw new SendError("meta_error", "Recurso multimedia no disponible");
+  }
+
+  const data = await readMediaFile(input.organizationId, asset.id).catch(() => {
+    throw new SendError("upload_failed", "El archivo multimedia no está disponible");
+  });
+  validateOutgoing(asset.mimeType, data.byteLength);
+  const target = await prepareSend(input.conversationId, input.organizationId);
+
+  return deliverMediaAsset({
+    target,
+    organizationId: input.organizationId,
+    conversationId: input.conversationId,
+    asset,
+    file: {
+      data,
+      mimeType: asset.mimeType,
+      fileName: asset.fileName ?? undefined,
+    },
+    caption: asset.caption ?? undefined,
+    aiGenerated: true,
+  });
+}
+
+async function deliverMediaAsset(input: {
+  target: SendTarget;
+  organizationId: string;
+  conversationId: string;
+  asset: typeof schema.mediaAsset.$inferSelect;
+  file: { data: Buffer; mimeType: string; fileName?: string };
+  caption?: string;
+  aiGenerated: boolean;
+}): Promise<SendResult> {
+  const { target, asset } = input;
+  const credentials = target.credentials;
+  const kind = asset.kind;
+  if (kind !== "image" && kind !== "video" && kind !== "audio" && kind !== "document") {
+    throw new SendError("meta_error", "Tipo de recurso multimedia no enviable");
+  }
+  const db = getDb();
+
   try {
     const waMediaId = await uploadGraphMedia(credentials!, input.file);
     await db
       .update(schema.mediaAsset)
       .set({ waMediaId, updatedAt: new Date() })
-      .where(eq(schema.mediaAsset.id, assetId));
+      .where(eq(schema.mediaAsset.id, asset.id));
 
     const mediaPayload: Record<string, unknown> = { id: waMediaId };
     if (input.caption && kind !== "audio") mediaPayload.caption = input.caption;
@@ -404,8 +484,9 @@ export async function sendMediaMessage(input: {
       type: kind,
       text: null,
       status: "pending",
-      origin: "operator",
-      mediaAssetId: assetId,
+      aiGenerated: input.aiGenerated,
+      origin: input.aiGenerated ? "ai" : "operator",
+      mediaAssetId: asset.id,
       media: asset,
     });
     return { messageId };
@@ -435,8 +516,9 @@ export async function sendMediaMessage(input: {
       text: null,
       status: "failed",
       error: sendErr.message,
-      origin: "operator",
-      mediaAssetId: assetId,
+      aiGenerated: input.aiGenerated,
+      origin: input.aiGenerated ? "ai" : "operator",
+      mediaAssetId: asset.id,
       media: asset,
     });
     throw sendErr;
