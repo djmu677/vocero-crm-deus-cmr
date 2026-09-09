@@ -27,7 +27,7 @@ type KbEntry = {
   content: string | null;
 };
 
-type AgentMedia = {
+export type AgentMedia = {
   id: string;
   kind: "image" | "video";
   label: string;
@@ -43,27 +43,21 @@ export function AgentClient() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [aiConfigured, setAiConfigured] = useState(true);
   const [entries, setEntries] = useState<KbEntry[]>([]);
-  const [stages, setStages] = useState<StageDto[]>([]);
-  const [mediaAssets, setMediaAssets] = useState<AgentMedia[]>([]);
   const [kbSize, setKbSize] = useState<{ chars: number; warnAt: number; warning: boolean } | null>(null);
   const [saved, setSaved] = useState(false);
 
   const refetch = useCallback(async () => {
-    const [p, kb, size, pipeline, media] = await Promise.all([
+    const [p, kb, size] = await Promise.all([
       fetch("/api/agent/profile").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/kb").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/kb/size").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/pipeline/stages").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/agent/media").then((r) => (r.ok ? r.json() : null)),
-    ]).catch(() => [null, null, null, null, null]);
+    ]).catch(() => [null, null, null]);
     if (p) {
       setProfile(p.profile);
       setAiConfigured(p.aiConfigured);
     }
     if (kb) setEntries(kb.entries);
     if (size) setKbSize(size);
-    if (pipeline) setStages(pipeline.stages);
-    if (media) setMediaAssets(media.assets);
   }, []);
 
   useEffect(() => {
@@ -140,17 +134,12 @@ export function AgentClient() {
       <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-2">
         <ProfileSection profile={profile} onSave={saveProfile} />
         <KbSection entries={entries} kbSize={kbSize} onChanged={() => void refetch()} />
-        <KanbanRulesSection stages={stages} onChanged={() => void refetch()} />
-        <MediaLibrarySection
-          assets={mediaAssets}
-          onChanged={() => void refetch()}
-        />
       </div>
     </div>
   );
 }
 
-function MediaLibrarySection({
+export function MediaLibrarySection({
   assets,
   onChanged,
 }: {
@@ -353,7 +342,7 @@ function MediaLibrarySection({
   );
 }
 
-function KanbanRulesSection({
+export function KanbanRulesSection({
   stages,
   onChanged,
 }: {
