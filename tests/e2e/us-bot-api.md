@@ -96,17 +96,25 @@ CRM no impone un cuestionario.
     le tiraría al bot datos de calificación que ya costaron una conversación.
 26. Conversación inexistente → **404**. Cuerpo sin `ficha` → **422**.
 
+## Movimiento seguro del kanban
+
+27. El contexto incluye `pipelineStages` con las etapas abiertas, en orden.
+28. `POST /api/bot/stage {conversationId, stage}` avanza por nombre y registra
+    el cambio mediante la bitácora central de etapas.
+29. Una etapa inexistente responde **422**; retroceder o declarar el lead
+    ganado/perdido responde **409** y no mueve la tarjeta.
+
 ## El bot envía a través del CRM
 
-27. `POST /api/bot/messages {conversationId, text}` con la key → **200**
+30. `POST /api/bot/messages {conversationId, text}` con la key → **200**
     `{messageId}`, el mensaje aparece en la bandeja marcado como IA
     (`aiGenerated: true`, `origin: "ai"`) y sale por el canal de WhatsApp. El
     token de Meta nunca viajó al bot.
-28. Con la IA pausada (handoff), el mismo envío → **409** `ai_paused` y el
+31. Con la IA pausada (handoff), el mismo envío → **409** `ai_paused` y el
     outbox NO cambia: el rechazo ocurre antes de tocar Meta.
-29. Con la ventana de 24 h cerrada → **409** `window_closed`. El bot no puede
+32. Con la ventana de 24 h cerrada → **409** `window_closed`. El bot no puede
     esquivar la regla de Meta; para eso está el envío de plantilla desde la app.
-30. En una conversación del Laboratorio → **409** `sandbox_violation`.
+33. En una conversación del Laboratorio → **409** `sandbox_violation`.
 
 ## El bot pide un humano
 
