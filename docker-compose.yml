@@ -19,12 +19,16 @@ services:
       BOT_API_KEY: ${BOT_API_KEY}
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-}
       AGENT_COALESCE_MS: ${AGENT_COALESCE_MS:-6000}
+      MEDIA_DIR: ${MEDIA_DIR:-/data/media}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - vocero-internal
       - dokploy-network
+
+    volumes:
+      - vocero_media:/data/media
 
   postgres:
     image: postgres:16-alpine
@@ -51,3 +55,4 @@ networks:
 
 volumes:
   vocero_pg:
+  vocero_media:
