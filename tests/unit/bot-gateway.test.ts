@@ -149,9 +149,14 @@ describe("resolveBotStage (movimientos seguros del cerebro externo)", () => {
   ];
 
   it("permite avanzar por nombre sin depender de mayúsculas", () => {
-    expect(resolveBotStage(" interesado ", stages[0]!, stages)).toEqual({
+    expect(
+      resolveBotStage("En conversación", stages[0]!, stages, [
+        "commercial_question",
+      ])
+    ).toEqual({
       ok: true,
-      target: stages[2]!,
+      target: stages[1]!,
+      evidence: ["commercial_question"],
     });
   });
 
@@ -197,9 +202,14 @@ describe("resolveBotStage (movimientos seguros del cerebro externo)", () => {
   });
 
   it("conserva compatibilidad con etapas anteriores sin campos de automatización", () => {
-    expect(resolveBotStage("Interesado", stages[0]!, stages)).toEqual({
+    expect(
+      resolveBotStage("En conversación", stages[0]!, stages, [
+        "product_identified",
+      ])
+    ).toEqual({
       ok: true,
-      target: stages[2]!,
+      target: stages[1]!,
+      evidence: ["product_identified"],
     });
   });
 });

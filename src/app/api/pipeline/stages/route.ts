@@ -4,6 +4,7 @@ import { parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
+import { semanticStageForName } from "@/server/bot/stage-evidence";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export const POST = withAuth(async (session, req: Request) => {
       name: body.data.name,
       position: (maxPos[0]?.max ?? -1) + 1,
       kind: "open",
+      botStageKey: semanticStageForName(body.data.name),
     })
     .returning();
   return Response.json({ stage: inserted[0] }, { status: 201 });

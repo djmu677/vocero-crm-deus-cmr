@@ -1,12 +1,17 @@
 import { count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
+import type { SemanticSalesStage } from "@/server/bot/stage-evidence";
 
 /** Etapas sembradas del pipeline (US2). */
-const SEED_STAGES: { name: string; kind: "open" | "won" | "lost" }[] = [
+const SEED_STAGES: {
+  name: string;
+  kind: "open" | "won" | "lost";
+  botStageKey?: SemanticSalesStage;
+}[] = [
   { name: "Nuevo", kind: "open" },
-  { name: "En conversación", kind: "open" },
-  { name: "Interesado", kind: "open" },
+  { name: "En conversación", kind: "open", botStageKey: "conversation" },
+  { name: "Interesado", kind: "open", botStageKey: "interested" },
   { name: "Cliente", kind: "won" },
   { name: "Perdido", kind: "lost" },
 ];
@@ -49,6 +54,7 @@ export async function onUserCreated(userId: string, userName: string) {
         name: s.name,
         position: i,
         kind: s.kind,
+        botStageKey: s.botStageKey ?? null,
       }))
     );
     await tx.insert(schema.agentProfile).values({

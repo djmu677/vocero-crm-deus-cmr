@@ -72,6 +72,7 @@ export type StageDto = {
   kind: "open" | "won" | "lost";
   botMoveEnabled: boolean;
   botMoveCriteria: string | null;
+  botStageKey: "conversation" | "interested" | "order" | null;
 };
 
 /** Un dato de la ficha. Escalar a propósito: ver `server/bot/ficha`. */
