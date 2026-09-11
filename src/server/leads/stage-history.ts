@@ -26,13 +26,19 @@ export type MoveResult =
   | { ok: true; lead: LeadRow; changed: boolean }
   | {
       ok: false;
-      reason: "lead_not_found" | "stage_not_found" | "loss_reason_required";
+      reason:
+        | "lead_not_found"
+        | "stage_not_found"
+        | "loss_reason_required"
+        | "stage_changed";
     };
 
 export type MoveInput = {
   organizationId: string;
   leadId: string;
   toStageId: string;
+  /** Evita escribir desde un origen distinto del que ya fue validado. */
+  expectedFromStageId?: string;
   /** Posición dentro de la columna destino. */
   position?: number;
   /** Quién lo movió; NULL cuando no fue una persona. */
@@ -79,6 +85,12 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
 
     const current = leadRows[0];
     if (!current) return { ok: false as const, reason: "lead_not_found" as const };
+    if (
+      input.expectedFromStageId !== undefined &&
+      current.lead.stageId !== input.expectedFromStageId
+    ) {
+      return { ok: false as const, reason: "stage_changed" as const };
+    }
 
     const targetRows = await tx
       .select()

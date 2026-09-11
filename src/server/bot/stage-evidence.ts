@@ -1,8 +1,8 @@
 /**
  * Contrato comercial para los movimientos automáticos del pipeline.
  *
- * P02 define el vocabulario y los requisitos. Todavía no decide ni ejecuta
- * movimientos: el validador determinista de P03 consumirá este contrato.
+ * P02 define el vocabulario y los requisitos. P03 aplica este contrato antes
+ * de que un movimiento solicitado por NEA llegue a la puerta de escritura.
  */
 
 export const COMMERCIAL_EVIDENCE_KEYS = [
@@ -113,3 +113,103 @@ export const DEFAULT_SALES_STAGE_EVIDENCE: Readonly<
 
 /** Ganado, perdido y entregado/pagado requieren una fuente humana o externa. */
 export const PROTECTED_OUTCOME_STAGE_KINDS = ["won", "lost"] as const;
+
+export type StageEvidenceDecision =
+  | { ok: true; contract: StageEvidenceContract }
+  | {
+      ok: false;
+      reason: "stage_rule_missing" | "insufficient_evidence";
+      contract: StageEvidenceContract | null;
+      missingEvidence: CommercialEvidenceKey[];
+      blockerCodes: StageBlockerCode[];
+    };
+
+function normalizedStageName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("es");
+}
+
+/**
+ * Resuelve únicamente las etapas cuyo significado comercial está definido en
+ * el contrato. Una columna personalizada sin regla estructurada se rechaza:
+ * un texto libre en `botMoveCriteria` puede orientar a NEA, pero no constituye
+ * una condición verificable para el servidor.
+ */
+export function semanticStageForName(
+  stageName: string
+): SemanticSalesStage | null {
+  switch (normalizedStageName(stageName)) {
+    case "en conversacion":
+      return "conversation";
+    case "interesado":
+      return "interested";
+    case "pedido":
+      return "order";
+    default:
+      return null;
+  }
+}
+
+const blockerByMissingEvidence: Readonly<
+  Partial<Record<CommercialEvidenceKey, StageBlockerCode>>
+> = {
+  product_identified: "missing_product",
+  order_confirmation: "ambiguous_confirmation",
+  quantity_confirmed: "missing_quantity",
+  configuration_complete: "missing_configuration",
+  delivery_commune: "missing_delivery_commune",
+  delivery_address: "missing_delivery_address",
+  recipient_confirmed: "missing_recipient",
+};
+
+/** Evalúa allOf/anyOf sin inferencias ni texto libre. */
+export function validateStageEvidence(
+  semanticStage: SemanticSalesStage | null,
+  evidence: readonly CommercialEvidenceKey[]
+): StageEvidenceDecision {
+  if (!semanticStage) {
+    return {
+      ok: false,
+      reason: "stage_rule_missing",
+      contract: null,
+      missingEvidence: [],
+      blockerCodes: [],
+    };
+  }
+
+  const contract = DEFAULT_SALES_STAGE_EVIDENCE[semanticStage];
+  const available = new Set(evidence);
+  const missingEvidence = contract.allOf.filter((key) => !available.has(key));
+  const anyOfMissing =
+    contract.anyOf.length > 0 &&
+    !contract.anyOf.some((key) => available.has(key));
+
+  if (anyOfMissing) {
+    missingEvidence.push(...contract.anyOf);
+  }
+
+  if (missingEvidence.length === 0) return { ok: true, contract };
+
+  const blockers = new Set<StageBlockerCode>();
+  for (const key of contract.allOf.filter((key) => !available.has(key))) {
+    const blocker = blockerByMissingEvidence[key];
+    if (blocker) blockers.add(blocker);
+  }
+  if (semanticStage === "conversation" && anyOfMissing) {
+    blockers.add("generic_question_only");
+  }
+  if (semanticStage === "interested" && anyOfMissing) {
+    blockers.add("missing_buying_signal");
+  }
+
+  return {
+    ok: false,
+    reason: "insufficient_evidence",
+    contract,
+    missingEvidence: [...new Set(missingEvidence)],
+    blockerCodes: [...blockers],
+  };
+}

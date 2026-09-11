@@ -207,6 +207,10 @@ export const pipelineStage = pgTable(
      */
     botMoveEnabled: boolean("bot_move_enabled").notNull().default(true),
     botMoveCriteria: text("bot_move_criteria"),
+    /** Identidad comercial estable; no cambia cuando el dueño renombra la columna. */
+    botStageKey: text("bot_stage_key", {
+      enum: ["conversation", "interested", "order"],
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("stage_org_pos_idx").on(t.organizationId, t.position)]

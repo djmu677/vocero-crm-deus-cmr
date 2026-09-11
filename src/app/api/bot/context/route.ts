@@ -3,6 +3,7 @@ import { getDb, schema } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { serializeFicha } from "@/server/bot/ficha";
+import { DEFAULT_SALES_STAGE_EVIDENCE } from "@/server/bot/stage-evidence";
 import { isWindowOpen, windowRemainingMs } from "@/server/inbox/window";
 
 export const dynamic = "force-dynamic";
@@ -116,6 +117,7 @@ export async function GET(req: Request) {
       position: schema.pipelineStage.position,
       botMoveEnabled: schema.pipelineStage.botMoveEnabled,
       botMoveCriteria: schema.pipelineStage.botMoveCriteria,
+      botStageKey: schema.pipelineStage.botStageKey,
     })
     .from(schema.pipelineStage)
     .where(
@@ -152,6 +154,11 @@ export async function GET(req: Request) {
       : null,
     // El cerebro externo solo ve destinos abiertos. Ganado/perdido requieren
     // confirmación del dueño y la API de movimiento también los rechaza.
-    pipelineStages,
+    pipelineStages: pipelineStages.map((stage) => ({
+      ...stage,
+      evidenceRule: stage.botStageKey
+        ? DEFAULT_SALES_STAGE_EVIDENCE[stage.botStageKey]
+        : null,
+    })),
   });
 }

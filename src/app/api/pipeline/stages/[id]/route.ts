@@ -4,6 +4,7 @@ import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { relocateLeadsFromStage } from "@/server/leads/stage-history";
+import { semanticStageForName } from "@/server/bot/stage-evidence";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +23,17 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
   if (!body.ok) return body.response;
 
   const db = getDb();
+  let currentBotStageKey: (typeof schema.pipelineStage.$inferSelect)["botStageKey"] =
+    null;
   const requestedBotRule =
     body.data.botMoveEnabled !== undefined ||
     body.data.botMoveCriteria !== undefined;
-  if (requestedBotRule) {
+  if (requestedBotRule || body.data.name !== undefined) {
     const stageRows = await db
-      .select({ kind: schema.pipelineStage.kind })
+      .select({
+        kind: schema.pipelineStage.kind,
+        botStageKey: schema.pipelineStage.botStageKey,
+      })
       .from(schema.pipelineStage)
       .where(
         scoped(
@@ -40,7 +46,8 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
     if (!stageRows[0]) {
       return apiError(404, "not_found", "Etapa no encontrada");
     }
-    if (stageRows[0].kind !== "open") {
+    currentBotStageKey = stageRows[0].botStageKey;
+    if (requestedBotRule && stageRows[0].kind !== "open") {
       return apiError(
         409,
         "protected_stage",
@@ -52,6 +59,9 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
     .update(schema.pipelineStage)
     .set({
       ...(body.data.name !== undefined ? { name: body.data.name } : {}),
+      ...(body.data.name !== undefined && !currentBotStageKey
+        ? { botStageKey: semanticStageForName(body.data.name) }
+        : {}),
       ...(body.data.position !== undefined
         ? { position: body.data.position }
         : {}),

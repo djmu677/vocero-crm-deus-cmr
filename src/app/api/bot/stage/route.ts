@@ -5,6 +5,7 @@ import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { resolveBotStage, type BotStage } from "@/server/bot/stage";
+import { COMMERCIAL_EVIDENCE_KEYS } from "@/server/bot/stage-evidence";
 import { publish } from "@/server/events/bus";
 import { moveLeadToStage } from "@/server/leads/stage-history";
 
@@ -13,11 +14,14 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   conversationId: z.string().min(1),
   stage: z.string().trim().min(1).max(100),
+  // Opcional en el shape para que un NEA anterior reciba un rechazo comercial
+  // explicable (409) en vez de romper el contrato HTTP con un 422.
+  evidence: z.array(z.enum(COMMERCIAL_EVIDENCE_KEYS)).max(32).default([]),
 });
 
 /**
  * Avanza un lead a una etapa ABIERTA del kanban desde un cerebro externo.
- * POST /api/bot/stage { conversationId, stage }
+ * POST /api/bot/stage { conversationId, stage, evidence[] }
  */
 export async function POST(req: Request) {
   const denied = requireBotKey(req);
@@ -68,6 +72,7 @@ export async function POST(req: Request) {
       position: schema.pipelineStage.position,
       botMoveEnabled: schema.pipelineStage.botMoveEnabled,
       botMoveCriteria: schema.pipelineStage.botMoveCriteria,
+      botStageKey: schema.pipelineStage.botStageKey,
     })
     .from(schema.pipelineStage)
     .where(scoped(schema.pipelineStage.organizationId, organizationId))
@@ -76,7 +81,8 @@ export async function POST(req: Request) {
   const decision = resolveBotStage(
     body.data.stage,
     current.stage as BotStage,
-    stages as BotStage[]
+    stages as BotStage[],
+    body.data.evidence
   );
   if (!decision.ok) {
     if (decision.reason === "stage_not_found") {
@@ -96,6 +102,33 @@ export async function POST(req: Request) {
         "El movimiento automatico a esta etapa esta desactivado"
       );
     }
+    if (decision.reason === "stage_skip") {
+      return apiError(
+        409,
+        "stage_skip",
+        "El bot solo puede avanzar a la siguiente etapa del pipeline"
+      );
+    }
+    if (decision.reason === "stage_rule_missing") {
+      return apiError(
+        409,
+        "stage_rule_missing",
+        "La etapa no tiene una regla estructurada que el servidor pueda validar"
+      );
+    }
+    if (decision.reason === "insufficient_evidence") {
+      return Response.json(
+        {
+          error: {
+            code: "insufficient_evidence",
+            message: "Falta evidencia comercial para avanzar el lead",
+            missingEvidence: decision.missingEvidence ?? [],
+            blockerCodes: decision.blockerCodes ?? [],
+          },
+        },
+        { status: 409 }
+      );
+    }
     return apiError(
       409,
       "backward_stage",
@@ -108,9 +141,17 @@ export async function POST(req: Request) {
     leadId: current.lead.id,
     toStageId: decision.target.id,
     source: "bot",
+    expectedFromStageId: current.stage.id,
     extra: { lastActivityAt: new Date() },
   });
   if (!result.ok) {
+    if (result.reason === "stage_changed") {
+      return apiError(
+        409,
+        "stage_changed",
+        "La etapa cambió durante la validación; vuelve a consultar el contexto"
+      );
+    }
     return apiError(409, result.reason, "No se pudo mover el lead");
   }
 
@@ -123,5 +164,6 @@ export async function POST(req: Request) {
     ok: true,
     stageMoved: result.changed,
     lead: { id: result.lead.id, stageName: decision.target.name },
+    evidence: decision.evidence,
   });
 }
