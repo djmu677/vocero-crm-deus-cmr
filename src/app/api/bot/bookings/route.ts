@@ -26,6 +26,7 @@ export const dynamic = "force-dynamic";
 const createSchema = z.object({
   conversationId: z.string().min(1),
   startUtc: z.string().min(1),
+  kind: z.enum(["session", "delivery"]).default("session"),
   notes: z.string().nullish(),
 });
 
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
       startUtc: body.data.startUtc,
       notes: body.data.notes ?? null,
       source: "ai",
+      kind: body.data.kind,
       // La regla innegociable: el agente solo reserva lo que ya ofreció.
       requireOffer: true,
     });
@@ -94,4 +96,3 @@ async function guard(req: Request): Promise<Gate> {
   }
   return { organizationId };
 }
-

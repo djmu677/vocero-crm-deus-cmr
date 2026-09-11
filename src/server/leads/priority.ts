@@ -1,15 +1,12 @@
 import type { PriorityValue } from "@/lib/types";
+import type { SemanticSalesStage } from "@/server/bot/stage-evidence";
 
 /**
  * Prioridad de cierre del lead.
  *
- * La fija el dueño y NADA la escribe automáticamente. Un CRM que adivina la
- * prioridad y la pisa cuando cambia de opinión es un CRM en el que se deja de
- * confiar: NULL significa "nadie la ha decidido", no "media".
- *
- * Sin sugerencias a propósito. Deducirla exigiría señales que este CRM no tiene
- * (¿está calificado? ¿respondió?), y una sugerencia calculada con dos datos
- * pobres se equivoca lo bastante como para que el dueño deje de mirarla.
+ * El dueño puede fijarla manualmente. Cuando NEA logra una transición validada,
+ * Parley la actualiza de forma determinista usando la etapa comercial; no se
+ * intenta adivinar desde palabras sueltas del chat.
  */
 
 export const PRIORITY_VALUES: readonly PriorityValue[] = ["alta", "media", "baja"];
@@ -30,6 +27,22 @@ export const PRIORITY_RANK: Record<PriorityValue, number> = {
   media: 1,
   baja: 2,
 };
+
+/** Prioridad automática únicamente después de una transición validada de NEA. */
+export function automaticPriorityForStage(
+  stage: SemanticSalesStage | null
+): PriorityValue | null {
+  switch (stage) {
+    case "conversation":
+      return "baja";
+    case "interested":
+      return "media";
+    case "order":
+      return "alta";
+    default:
+      return null;
+  }
+}
 
 export function priorityRank(value: PriorityValue | null): number {
   return value ? PRIORITY_RANK[value] : 3;

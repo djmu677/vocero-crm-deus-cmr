@@ -239,9 +239,8 @@ export const lead = pgTable(
     /** Moneda del monto; la del negocio al capturarlo (Ajustes → Marca). */
     currency: text("currency"),
     /**
-     * Prioridad de cierre. NULL = nadie la ha decidido, que NO es lo mismo que
-     * "media": nada la escribe automáticamente, así que el dueño puede confiar
-     * en que lo que ve es lo que él puso.
+     * Prioridad de cierre. NULL = aún no clasificada. Los movimientos validados
+     * de NEA la alinean con la etapa; el operador siempre puede corregirla.
      */
     priority: text("priority", { enum: ["alta", "media", "baja"] }),
     priorityUpdatedAt: timestamp("priority_updated_at"),
@@ -750,7 +749,7 @@ export const booking = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["session", "block"] })
+    kind: text("kind", { enum: ["session", "delivery", "block"] })
       .notNull()
       .default("session"),
     status: text("status", {
