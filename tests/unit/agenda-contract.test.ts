@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   bookingErrorResponse,
@@ -41,6 +42,18 @@ describe("cuerpo de una reserva creada", () => {
     } as never);
     expect(pendiente.meetingLink).toBeNull();
     expect(pendiente.linkPending).toBe(true);
+  });
+});
+
+describe("entregas", () => {
+  it("el bot puede reservar una entrega sin crear una videollamada", () => {
+    const route = readFileSync("src/app/api/bot/bookings/route.ts", "utf8");
+    const service = readFileSync("src/server/agenda/service.ts", "utf8");
+    expect(route).toContain('z.enum(["session", "delivery"])');
+    expect(service).toContain('booking.kind === "delivery"');
+    expect(service).toContain("? booking");
+    expect(service).toContain('(input.kind ?? "session") === "session"');
+    expect(service).toContain("se saltaría deliberadamente las evidencias de P03");
   });
 });
 

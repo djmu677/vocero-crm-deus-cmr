@@ -8,7 +8,7 @@ import { getSettings } from "@/server/agenda/settings";
 
 export type BookingListItem = {
   id: string;
-  kind: "session" | "block";
+  kind: "session" | "delivery" | "block";
   status: "agendada" | "realizada" | "no_show" | "cancelada";
   source: "manual" | "ai";
   scheduledAtUtc: string;

@@ -84,6 +84,8 @@ export async function createSessionBooking(input: {
   organizationId: string;
   startUtc: string;
   source: "manual" | "ai";
+  /** Una entrega ocupa agenda, pero no crea una videollamada. */
+  kind?: "session" | "delivery";
   /** Obligatoria en el camino conversacional; de ella sale el contacto. */
   conversationId?: string | null;
   /** Camino manual del operador. */
@@ -186,7 +188,7 @@ export async function createSessionBooking(input: {
       .values({
         id: newId("booking"),
         organizationId: input.organizationId,
-        kind: "session",
+        kind: input.kind ?? "session",
         source: input.source === "ai" ? "ai" : "manual",
         contactId,
         conversationId: input.conversationId ?? null,
@@ -227,14 +229,22 @@ export async function createSessionBooking(input: {
   }
 
   // Efectos secundarios: ninguno puede revertir la cita.
-  const delivered = await deliverMeeting(booking, settings, contactName);
-  await advanceLeadStage(
-    input.organizationId,
-    contactId,
-    input.source === "ai" ? "bot" : "dueno"
-  ).catch((err) => {
-    console.warn(`[agenda] avance de etapa falló: ${err}`);
-  });
+  const delivered =
+    booking.kind === "delivery"
+      ? booking
+      : await deliverMeeting(booking, settings, contactName);
+  // Una cita conserva el comportamiento histórico. Una entrega, en cambio,
+  // solo puede existir después de que /api/bot/stage haya validado Pedido;
+  // avanzar aquí se saltaría deliberadamente las evidencias de P03.
+  if ((input.kind ?? "session") === "session") {
+    await advanceLeadStage(
+      input.organizationId,
+      contactId,
+      input.source === "ai" ? "bot" : "dueno"
+    ).catch((err) => {
+      console.warn(`[agenda] avance de etapa falló: ${err}`);
+    });
+  }
 
   publish(input.organizationId, {
     type: "booking.updated",

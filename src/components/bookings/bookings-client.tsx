@@ -11,7 +11,7 @@ import { useEvents } from "@/components/use-events";
 
 type Booking = {
   id: string;
-  kind: "session" | "block";
+  kind: "session" | "delivery" | "block";
   status: "agendada" | "realizada" | "no_show" | "cancelada";
   source: "manual" | "ai";
   scheduledAtUtc: string;
@@ -161,7 +161,7 @@ export function BookingsClient() {
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">
-          Citas <span className="text-text-3">({bookings.length})</span>
+          Agenda <span className="text-text-3">({bookings.length})</span>
         </h3>
         {bookings.length === 0 && (
           <p className="text-sm text-text-3">
@@ -187,9 +187,12 @@ export function BookingsClient() {
                 {b.kind === "block" ? (
                   <Badge variant="secondary">Bloqueo</Badge>
                 ) : (
-                  <Badge variant="secondary">
-                    {b.source === "ai" ? "Agendó la IA" : "Manual"}
-                  </Badge>
+                  <>
+                    {b.kind === "delivery" && <Badge variant="secondary">Entrega</Badge>}
+                    <Badge variant="secondary">
+                      {b.source === "ai" ? "Agendó la IA" : "Manual"}
+                    </Badge>
+                  </>
                 )}
                 {b.isTest && <Badge variant="secondary">Prueba</Badge>}
                 {b.linkPending && b.status !== "cancelada" && (
@@ -245,7 +248,7 @@ export function BookingsClient() {
                   >
                     Reprogramar
                   </Button>
-                  {b.kind === "session" && (
+                  {b.kind !== "block" && (
                     <>
                       <Button
                         size="sm"
@@ -255,7 +258,7 @@ export function BookingsClient() {
                           act(b.id, { action: "status", status: "realizada" })
                         }
                       >
-                        Realizada
+                        {b.kind === "delivery" ? "Entregada" : "Realizada"}
                       </Button>
                       <Button
                         size="sm"
@@ -265,7 +268,7 @@ export function BookingsClient() {
                           act(b.id, { action: "status", status: "no_show" })
                         }
                       >
-                        No asistió
+                        {b.kind === "delivery" ? "No entregada" : "No asistió"}
                       </Button>
                     </>
                   )}

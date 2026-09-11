@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  automaticPriorityForStage,
   byPriority,
   isPriority,
   PRIORITY_LABELS,
@@ -8,12 +9,18 @@ import {
 } from "@/server/leads/priority";
 
 describe("prioridad del lead", () => {
-  it("nada la escribe sola: no hay función que la sugiera", async () => {
-    // Este test es el contrato del módulo. Si alguien agrega una heurística
-    // que rellene la prioridad, el dueño dejará de poder confiar en que lo que
-    // ve es lo que él puso — y este test es el lugar donde discutirlo.
-    const mod = await import("@/server/leads/priority");
-    expect(Object.keys(mod)).not.toContain("suggestPriority");
+  it("la etapa validada de NEA determina la prioridad sin interpretar texto", () => {
+    expect(automaticPriorityForStage("conversation")).toBe("baja");
+    expect(automaticPriorityForStage("interested")).toBe("media");
+    expect(automaticPriorityForStage("order")).toBe("alta");
+    expect(automaticPriorityForStage(null)).toBeNull();
+  });
+
+  it("la actualización automática vive en la puerta única y solo aplica al bot", async () => {
+    const { readFileSync } = await import("node:fs");
+    const gate = readFileSync("src/server/leads/stage-history.ts", "utf8");
+    expect(gate).toContain('input.source === "bot"');
+    expect(gate).toContain("automaticPriorityForStage(target.botStageKey)");
   });
 
   it("el catálogo es cerrado y todo valor tiene etiqueta", () => {

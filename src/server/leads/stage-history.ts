@@ -5,6 +5,7 @@ import { scoped } from "@/lib/db/tenant";
 import type { LossReason, StageChangeSource } from "@/lib/types";
 import { reportStageChange } from "@/server/attribution/conversions";
 import { sendOrderAlert } from "@/server/telegram/order-alert";
+import { automaticPriorityForStage } from "@/server/leads/priority";
 
 /**
  * La ÚNICA puerta que escribe `lead.stage_id`.
@@ -112,6 +113,8 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
     const changed = current.lead.stageId !== target.id;
     toStageKind = target.kind;
     toBotStageKey = target.botStageKey;
+    const automaticPriority =
+      input.source === "bot" ? automaticPriorityForStage(target.botStageKey) : null;
 
     // El motivo se exige al ENTRAR a la etapa perdida. Reordenar una tarjeta
     // que ya estaba ahí no vuelve a preguntar.
@@ -123,6 +126,9 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
       .update(schema.lead)
       .set({
         ...(input.extra ?? {}),
+        ...(changed && automaticPriority
+          ? { priority: automaticPriority, priorityUpdatedAt: new Date() }
+          : {}),
         stageId: target.id,
         ...(input.position !== undefined ? { position: input.position } : {}),
         updatedAt: new Date(),
