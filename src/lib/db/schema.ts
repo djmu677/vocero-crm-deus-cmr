@@ -1057,3 +1057,24 @@ export const capiSettings = pgTable(
   },
   (t) => [uniqueIndex("capi_settings_org_uq").on(t.organizationId)]
 );
+
+/** Alertas de pedidos del negocio. El token de Telegram nunca se guarda en claro. */
+export const telegramAlertSettings = pgTable(
+  "telegram_alert_settings",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    botTokenCipher: text("bot_token_cipher").notNull(),
+    botTokenIv: text("bot_token_iv").notNull(),
+    botTokenTag: text("bot_token_tag").notNull(),
+    chatId: text("chat_id").notNull(),
+    botUsername: text("bot_username"),
+    chatLabel: text("chat_label"),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("telegram_alert_settings_org_uq").on(t.organizationId)]
+);

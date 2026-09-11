@@ -4,6 +4,7 @@ import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
 import type { LossReason, StageChangeSource } from "@/lib/types";
 import { reportStageChange } from "@/server/attribution/conversions";
+import { sendOrderAlert } from "@/server/telegram/order-alert";
 
 /**
  * La ÚNICA puerta que escribe `lead.stage_id`.
@@ -65,6 +66,7 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
   // llamada de red dentro de la transacción la mantendría abierta mientras
   // Meta piensa, y una conversión jamás vale una transacción larga.
   let toStageKind: "open" | "won" | "lost" | null = null;
+  let toBotStageKey: "conversation" | "interested" | "order" | null = null;
 
   const result = await db.transaction(async (tx) => {
     const leadRows = await tx
@@ -109,6 +111,7 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
 
     const changed = current.lead.stageId !== target.id;
     toStageKind = target.kind;
+    toBotStageKey = target.botStageKey;
 
     // El motivo se exige al ENTRAR a la etapa perdida. Reordenar una tarjeta
     // que ya estaba ahí no vuelve a preguntar.
@@ -170,6 +173,17 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
       contactId: result.lead.contactId,
       toStageId: result.lead.stageId,
       toStageKind,
+    });
+  }
+
+  // Un aviso sale únicamente después del commit y al ENTRAR a la etapa que el
+  // negocio marcó semánticamente como Pedido. Renombrar la columna no lo rompe,
+  // y reordenar dentro de Pedido (`changed=false`) no genera otro mensaje.
+  if (result.ok && result.changed && toBotStageKey === "order") {
+    await sendOrderAlert({
+      organizationId: input.organizationId,
+      leadId: result.lead.id,
+      contactId: result.lead.contactId,
     });
   }
 

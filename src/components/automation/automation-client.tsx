@@ -7,6 +7,7 @@ import {
   type AgentMedia,
 } from "@/components/agent/agent-client";
 import type { StageDto } from "@/lib/types";
+import { TelegramAlertSection } from "@/components/automation/telegram-alert-section";
 
 export function AutomationClient() {
   const [stages, setStages] = useState<StageDto[]>([]);
@@ -47,6 +48,7 @@ export function AutomationClient() {
         </div>
       ) : (
         <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-2">
+          <TelegramAlertSection />
           <KanbanRulesSection
             stages={stages}
             onChanged={() => void refetch()}
