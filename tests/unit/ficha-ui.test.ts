@@ -31,6 +31,10 @@ describe("fichaValueText", () => {
     expect(fichaValueText(50000)).toBe("50000");
     expect(fichaValueText("Polanco")).toBe("Polanco");
   });
+
+  it("los extras estructurados se leen sin mostrar JSON", () => {
+    expect(fichaValueText([{ label: "Puff", quantity: 2 }])).toBe("Puff ×2");
+  });
 });
 
 describe("parseFichaValue", () => {

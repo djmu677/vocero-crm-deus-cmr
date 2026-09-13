@@ -22,6 +22,9 @@ export function fichaLabel(key: string): string {
 
 /** Cómo se muestra un valor. Los booleanos en Sí/No: nadie califica en `true`. */
 export function fichaValueText(value: FichaValue): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => `${item.label} ×${item.quantity}`).join(", ");
+  }
   if (typeof value === "boolean") return value ? "Sí" : "No";
   if (typeof value === "number") return String(value);
   return value ?? "";
@@ -54,6 +57,7 @@ export function parseFichaValue(
     if (t !== "" && Number.isFinite(n)) return n;
     return t;
   }
+  if (Array.isArray(previous)) return previous;
   return t;
 }
 

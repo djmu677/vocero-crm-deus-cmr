@@ -8,6 +8,7 @@ import {
 } from "@/components/agent/agent-client";
 import type { StageDto } from "@/lib/types";
 import { TelegramAlertSection } from "@/components/automation/telegram-alert-section";
+import { QuoteCatalogSection } from "@/components/automation/quote-catalog-section";
 
 export function AutomationClient() {
   const [stages, setStages] = useState<StageDto[]>([]);
@@ -48,6 +49,7 @@ export function AutomationClient() {
         </div>
       ) : (
         <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-2">
+          <QuoteCatalogSection />
           <TelegramAlertSection />
           <KanbanRulesSection
             stages={stages}

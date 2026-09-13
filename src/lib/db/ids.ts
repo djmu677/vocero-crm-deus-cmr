@@ -30,6 +30,7 @@ const prefixes = {
   conversionEvent: "cve",
   capiSettings: "capi",
   telegramAlertSettings: "tga",
+  quoteCatalogSettings: "qcs",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

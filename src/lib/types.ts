@@ -76,7 +76,8 @@ export type StageDto = {
 };
 
 /** Un dato de la ficha. Escalar a propósito: ver `server/bot/ficha`. */
-export type FichaValue = string | number | boolean;
+export type FichaExtra = { label: string; quantity: number; unit_price_cents?: number; subtotal_cents?: number };
+export type FichaValue = string | number | boolean | FichaExtra[];
 
 /**
  * Ficha de calificación del lead. Claves libres: cada negocio califica
