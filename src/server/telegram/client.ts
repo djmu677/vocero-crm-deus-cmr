@@ -53,12 +53,18 @@ export function sendTelegramMessage(
   token: string,
   chatId: string,
   text: string,
-  fetcher?: typeof fetch
+  fetcher?: typeof fetch,
+  options?: { parseMode?: "HTML" }
 ) {
   return telegramRequest<{ message_id: number }>(
     token,
     "sendMessage",
-    { chat_id: chatId, text, disable_web_page_preview: true },
+    {
+      chat_id: chatId,
+      text,
+      disable_web_page_preview: true,
+      ...(options?.parseMode ? { parse_mode: options.parseMode } : {}),
+    },
     fetcher
   );
 }
