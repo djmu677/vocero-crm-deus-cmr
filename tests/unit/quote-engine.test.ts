@@ -68,6 +68,33 @@ describe("cotizador determinista", () => {
     expect(calculateQuote(catalog, { product: "Futón", delivery_commune: "Lampa", product_configuration: "con brazos", legs: "madera", order_extras: [{ label: "Mesa", quantity: 1 }] })).toMatchObject({ ok: false, code: "extra_not_found" });
   });
 
+  it("identifica el campo exacto y las opciones cuando falta configuración", () => {
+    expect(calculateQuote(catalog, {
+      product: "Futón",
+      delivery_commune: "Lampa",
+    })).toMatchObject({
+      ok: false,
+      code: "option_required",
+      missingField: "product_configuration",
+      allowedOptions: ["Brazos"],
+    });
+  });
+
+  it("no permite que una opción desconocida se confunda con otro atributo", () => {
+    expect(calculateQuote(catalog, {
+      product: "Futón",
+      delivery_commune: "Lampa",
+      product_configuration: "con brazos",
+      legs: "color natural",
+    })).toMatchObject({
+      ok: false,
+      code: "option_not_found",
+      missingField: "legs",
+      receivedValue: "color natural",
+      allowedOptions: ["Patas de madera"],
+    });
+  });
+
   it("rechaza aliases ambiguos antes de guardar el catálogo", () => {
     const duplicated = structuredClone(catalog);
     duplicated.products.push({ ...structuredClone(catalog.products[0]!), id: "otro" });

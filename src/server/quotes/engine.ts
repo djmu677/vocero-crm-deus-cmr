@@ -42,6 +42,12 @@ export type QuoteResult =
         | "extra_not_found"
         | "amount_too_large";
       message: string;
+      /** Campo exacto que debe corregirse; evita que el agente lo adivine. */
+      missingField?: QuoteAdjustment["field"];
+      /** Valor que no coincidió, si el cliente sí había dado uno. */
+      receivedValue?: string;
+      /** Etiquetas canónicas admitidas para ese campo y producto. */
+      allowedOptions?: string[];
     };
 
 export function normalizeQuoteKey(value: unknown): string {
@@ -85,6 +91,20 @@ const FIELD_LABELS: Record<Exclude<QuoteAdjustment["field"], "order_extras">, st
   legs: "el tipo de patas",
 };
 
+function listAllowedOptions(
+  product: QuoteProduct,
+  field: QuoteAdjustment["field"]
+): string[] {
+  return Array.from(
+    new Set(
+      product.adjustments
+        .filter((item) => item.field === field)
+        .map((item) => item.label.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 function extraRows(value: unknown): Array<{ label: string; quantity: number }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
@@ -125,11 +145,14 @@ export function calculateQuote(catalog: QuoteCatalog, ficha: Ficha): QuoteResult
   );
   for (const field of pricedFields) {
     const value = ficha[field];
+    const allowedOptions = listAllowedOptions(product, field);
     if (!normalizeQuoteKey(value)) {
       return {
         ok: false,
         code: "option_required",
         message: `Falta confirmar ${FIELD_LABELS[field as keyof typeof FIELD_LABELS]}`,
+        missingField: field,
+        allowedOptions,
       };
     }
     if (
@@ -141,6 +164,9 @@ export function calculateQuote(catalog: QuoteCatalog, ficha: Ficha): QuoteResult
         ok: false,
         code: "option_not_found",
         message: `La opción ${String(value)} no está configurada en el cotizador`,
+        missingField: field,
+        receivedValue: String(value),
+        allowedOptions,
       };
     }
   }
@@ -157,6 +183,9 @@ export function calculateQuote(catalog: QuoteCatalog, ficha: Ficha): QuoteResult
       ok: false,
       code: "extra_not_found",
       message: `El adicional ${unknownExtra.label} no está configurado en el cotizador`,
+      missingField: "order_extras",
+      receivedValue: unknownExtra.label,
+      allowedOptions: listAllowedOptions(product, "order_extras"),
     };
   }
 
