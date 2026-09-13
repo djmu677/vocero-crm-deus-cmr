@@ -76,6 +76,14 @@ describe("normalizeFicha (tolerante al drift del LLM)", () => {
     });
   });
 
+  it("conserva extras acotados pero elimina cualquier precio enviado por el bot", () => {
+    expect(normalizeFicha({
+      order_extras: [{ label: "Puff adicional", quantity: 2, unit_price_cents: 1 }],
+      order_total_cents: 1,
+      base_price_cents: 1,
+    })).toEqual({ order_extras: [{ label: "Puff adicional", quantity: 2 }] });
+  });
+
   it("números no finitos fuera; el cero sí es un dato", () => {
     expect(normalizeFicha({ a: Number.NaN, b: Infinity, empleados: 0 })).toEqual({
       empleados: 0,

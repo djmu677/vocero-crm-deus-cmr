@@ -5,6 +5,7 @@ import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { serializeFicha } from "@/server/bot/ficha";
 import { DEFAULT_SALES_STAGE_EVIDENCE } from "@/server/bot/stage-evidence";
 import { isWindowOpen, windowRemainingMs } from "@/server/inbox/window";
+import { getQuoteCatalog } from "@/server/quotes/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +129,8 @@ export async function GET(req: Request) {
     )
     .orderBy(asc(schema.pipelineStage.position));
 
+  const quoteCatalog = await getQuoteCatalog(organizationId);
+
   return Response.json({
     contact: {
       id: contact.id,
@@ -160,5 +163,9 @@ export async function GET(req: Request) {
         ? DEFAULT_SALES_STAGE_EVIDENCE[stage.botStageKey]
         : null,
     })),
+    quote: {
+      enabled: Boolean(quoteCatalog?.enabled),
+      currency: quoteCatalog?.currency ?? null,
+    },
   });
 }

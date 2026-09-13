@@ -25,7 +25,55 @@ const MAX_KEY_LEN = 60;
 const MAX_VALUE_LEN = 500;
 
 export type FichaInput = Record<string, unknown>;
-export type Ficha = Record<string, string | number | boolean | null>;
+export type FichaExtra = { label: string; quantity: number };
+export type FichaValue = string | number | boolean | null | FichaExtra[];
+export type Ficha = Record<string, FichaValue>;
+
+const TRUSTED_PRICE_FIELDS = new Set([
+  "base_price_cents",
+  "unit_price_cents",
+  "item_subtotal_cents",
+  "subtotal_cents",
+  "shipping_cost_cents",
+  "delivery_cost_cents",
+  "order_total_cents",
+  "total_cents",
+  "quote_currency",
+  "quote_status",
+  "quote_applied",
+]);
+const PRICE_INVALIDATING_FIELDS = new Set([
+  "product",
+  "producto",
+  "model",
+  "modelo",
+  "product_variant",
+  "product_configuration",
+  "material",
+  "color",
+  "legs",
+  "quantity_confirmed",
+  "quantity",
+  "cantidad",
+  "order_extras",
+  "delivery_commune",
+  "comuna",
+  "commune",
+  "geo",
+]);
+
+function normalizeExtras(value: unknown): FichaExtra[] | null {
+  if (!Array.isArray(value)) return null;
+  const extras = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const row = entry as Record<string, unknown>;
+    const label = typeof row.label === "string" ? row.label.trim().slice(0, 80) : "";
+    const quantity = typeof row.quantity === "number" ? row.quantity : Number(row.quantity);
+    if (!label || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100) return [];
+    return [{ label, quantity }];
+  });
+  return extras.slice(0, 12);
+}
 
 /**
  * Deja la ficha en valores que se puedan guardar y mostrar: escalares
@@ -41,6 +89,15 @@ export function normalizeFicha(raw: FichaInput): Ficha {
 
     const key = rawKey.trim();
     if (!key || key.length > MAX_KEY_LEN) continue;
+    // Los importes solo los escribe el cotizador del servidor. Ni el LLM ni
+    // una corrección manual pueden convertir una suposición en precio oficial.
+    if (TRUSTED_PRICE_FIELDS.has(key)) continue;
+
+    if (key === "order_extras") {
+      const extras = normalizeExtras(value);
+      if (extras) out[key] = extras;
+      continue;
+    }
 
     if (value === null) {
       out[key] = null;
@@ -110,6 +167,11 @@ export async function upsertFicha(input: {
   if (!rows[0]) return null;
 
   const merged = mergeFicha(rows[0].ficha as Ficha | null, patch);
+  if (Object.keys(patch).some((key) => PRICE_INVALIDATING_FIELDS.has(key))) {
+    for (const key of TRUSTED_PRICE_FIELDS) delete merged[key];
+    const extras = normalizeExtras(merged.order_extras);
+    if (extras) merged.order_extras = extras;
+  }
 
   await db
     .update(schema.contact)
@@ -117,6 +179,44 @@ export async function upsertFicha(input: {
     .where(alcance);
 
   return { ficha: merged };
+}
+
+/** Persiste una cotización ya calculada por el servidor y su total del lead. */
+export async function persistQuotedFicha(input: {
+  organizationId: string;
+  contactId: string;
+  leadId: string;
+  ficha: Record<string, unknown>;
+  totalCents: number;
+  currency: string;
+}): Promise<void> {
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.contact)
+      .set({ ficha: input.ficha, updatedAt: new Date() })
+      .where(
+        scoped(
+          schema.contact.organizationId,
+          input.organizationId,
+          eq(schema.contact.id, input.contactId)
+        )
+      );
+    await tx
+      .update(schema.lead)
+      .set({
+        amountCents: input.totalCents,
+        currency: input.currency,
+        updatedAt: new Date(),
+      })
+      .where(
+        scoped(
+          schema.lead.organizationId,
+          input.organizationId,
+          eq(schema.lead.id, input.leadId)
+        )
+      );
+  });
 }
 
 export function serializeFicha(

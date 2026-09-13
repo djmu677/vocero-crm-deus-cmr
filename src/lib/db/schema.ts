@@ -1077,3 +1077,21 @@ export const telegramAlertSettings = pgTable(
   },
   (t) => [uniqueIndex("telegram_alert_settings_org_uq").on(t.organizationId)]
 );
+
+/** Catálogo de precios determinista por negocio. Los importes son centavos. */
+export const quoteCatalogSettings = pgTable(
+  "quote_catalog_settings",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(false),
+    currency: text("currency").notNull().default("CLP"),
+    products: jsonb("products").$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
+    shippingRates: jsonb("shipping_rates").$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("quote_catalog_settings_org_uq").on(t.organizationId)]
+);
