@@ -1,7 +1,5 @@
-import { LabClient } from "@/components/lab/lab-client";
-
-export const dynamic = "force-dynamic";
+import { redirect } from "next/navigation";
 
 export default function LabPage() {
-  return <LabClient />;
+  redirect("/results");
 }
