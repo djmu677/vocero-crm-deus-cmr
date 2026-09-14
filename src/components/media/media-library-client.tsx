@@ -2,22 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  KanbanRulesSection,
+  MediaLibrarySection,
+  type AgentMedia,
 } from "@/components/agent/agent-client";
-import type { StageDto } from "@/lib/types";
-import { TelegramAlertSection } from "@/components/automation/telegram-alert-section";
-import { QuoteCatalogSection } from "@/components/automation/quote-catalog-section";
 
-export function AutomationClient() {
-  const [stages, setStages] = useState<StageDto[]>([]);
+export function MediaLibraryClient() {
+  const [assets, setAssets] = useState<AgentMedia[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
-    const pipeline = await fetch("/api/pipeline/stages")
+    const payload = await fetch("/api/agent/media")
       .then((response) => (response.ok ? response.json() : null))
       .catch(() => null);
-
-    if (pipeline) setStages(pipeline.stages);
+    if (payload) setAssets(payload.assets);
     setLoading(false);
   }, []);
 
@@ -28,9 +25,12 @@ export function AutomationClient() {
   return (
     <div className="h-full overflow-y-auto">
       <header className="border-b px-4 py-3 sm:px-6 sm:py-4">
-        <h2 className="text-[17px] font-bold tracking-tight">Automatización</h2>
+        <h2 className="text-[17px] font-bold tracking-tight">
+          Biblioteca multimedia
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Define cómo avanza el agente, calcula pedidos y avisa al equipo.
+          Administra las imágenes y videos aprobados que NEA puede enviar a tus
+          clientes.
         </p>
       </header>
 
@@ -39,11 +39,9 @@ export function AutomationClient() {
           Cargando…
         </div>
       ) : (
-        <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-2">
-          <QuoteCatalogSection />
-          <TelegramAlertSection />
-          <KanbanRulesSection
-            stages={stages}
+        <div className="p-4 sm:p-6">
+          <MediaLibrarySection
+            assets={assets}
             onChanged={() => void refetch()}
           />
         </div>
