@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   KanbanRulesSection,
-  MediaLibrarySection,
-  type AgentMedia,
 } from "@/components/agent/agent-client";
 import type { StageDto } from "@/lib/types";
 import { TelegramAlertSection } from "@/components/automation/telegram-alert-section";
@@ -12,21 +10,14 @@ import { QuoteCatalogSection } from "@/components/automation/quote-catalog-secti
 
 export function AutomationClient() {
   const [stages, setStages] = useState<StageDto[]>([]);
-  const [mediaAssets, setMediaAssets] = useState<AgentMedia[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
-    const [pipeline, media] = await Promise.all([
-      fetch("/api/pipeline/stages").then((response) =>
-        response.ok ? response.json() : null
-      ),
-      fetch("/api/agent/media").then((response) =>
-        response.ok ? response.json() : null
-      ),
-    ]).catch(() => [null, null]);
+    const pipeline = await fetch("/api/pipeline/stages")
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null);
 
     if (pipeline) setStages(pipeline.stages);
-    if (media) setMediaAssets(media.assets);
     setLoading(false);
   }, []);
 
@@ -39,7 +30,7 @@ export function AutomationClient() {
       <header className="border-b px-4 py-3 sm:px-6 sm:py-4">
         <h2 className="text-[17px] font-bold tracking-tight">Automatización</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Define cómo avanza el agente y qué materiales puede enviar a tus clientes.
+          Define cómo avanza el agente, calcula pedidos y avisa al equipo.
         </p>
       </header>
 
@@ -53,10 +44,6 @@ export function AutomationClient() {
           <TelegramAlertSection />
           <KanbanRulesSection
             stages={stages}
-            onChanged={() => void refetch()}
-          />
-          <MediaLibrarySection
-            assets={mediaAssets}
             onChanged={() => void refetch()}
           />
         </div>
