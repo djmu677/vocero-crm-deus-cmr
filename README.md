@@ -1,21 +1,21 @@
-# Vocero CRM
+# Parley CRM
 
 [![CI](https://github.com/kevinrivm/vocero-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinrivm/vocero-crm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **El CRM de WhatsApp open source con un agente de IA que se pone a prueba solo.**
 
-Vocero es un CRM self-hosted y gratuito para negocios que venden por WhatsApp:
+Parley es un CRM self-hosted y gratuito para negocios que venden por WhatsApp:
 bandeja en tiempo real, pipeline de ventas, un agente de IA con el conocimiento
 de tu negocio y un **Laboratorio** donde clientes simulados lo evalúan antes de
 que hable con clientes reales. Una instancia = un negocio, en tu propio
 servidor, con tus datos.
 
-¿Ya tienes tu propio agente? Puedes apagar el de Vocero y conectar el tuyo por
+¿Ya tienes tu propio agente? Puedes apagar el de Parley y conectar el tuyo por
 la [API de servicio `/api/bot/*`](#-trae-tu-propio-agente): el token de WhatsApp
 nunca sale del CRM.
 
-![Bandeja de Vocero CRM](docs/screenshots/bandeja.png)
+![Bandeja de Parley CRM](docs/screenshots/bandeja.png)
 
 <p align="center">
   <img src="docs/screenshots/laboratorio.png" width="49%" alt="Laboratorio: reporte con score y hallazgos" />
@@ -77,7 +77,7 @@ Proveedor LLM por adaptador OpenRouter-compatible: usa el modelo que quieras.
 ### 🔌 Trae tu propio agente
 
 Si prefieres conducir la conversación con tu propio cerebro —un microservicio
-tuyo, en tu mismo servidor— apaga el agente de Vocero y habilita la API de
+tuyo, en tu mismo servidor— apaga el agente de Parley y habilita la API de
 servicio con una `BOT_API_KEY`. Tu bot conversa a través del CRM, así que **el
 token de WhatsApp nunca sale de aquí** y todo queda en la bandeja como
 cualquier otra conversación.
@@ -197,7 +197,7 @@ Caddy emite el certificado HTTPS solo. Verifica con
 
 ## Conexión del número de WhatsApp
 
-Vocero **consume** un token de la WhatsApp Cloud API — no implementa el
+Parley **consume** un token de la WhatsApp Cloud API — no implementa el
 Embedded Signup. Hay dos formas de obtenerlo:
 
 ### Modo directo (el negocio tiene su propia app de Meta)
@@ -207,10 +207,10 @@ Embedded Signup. Hay dos formas de obtenerlo:
 2. Crea un **usuario del sistema** (Business Settings → System users) con
    acceso a la WABA y genera un token permanente con permisos
    `whatsapp_business_messaging` y `whatsapp_business_management`.
-3. En Vocero: **Configuración → WhatsApp** → pega WABA ID + Phone Number ID +
+3. En Parley: **Configuración → WhatsApp** → pega WABA ID + Phone Number ID +
    token → **Probar conexión** → Guardar.
 4. En el panel de Meta (WhatsApp → Configuration → Webhook) pega la **URL del
-   webhook** y el **verify token** que Vocero te muestra, y suscribe el campo
+   webhook** y el **verify token** que Parley te muestra, y suscribe el campo
    `messages` (y `message_template_status_update` si usarás plantillas).
 5. Recomendado: agrega `META_APP_SECRET` (App Secret de tu app) a las
    variables de la instancia para la verificación de firma de cada evento.
@@ -218,7 +218,7 @@ Embedded Signup. Hay dos formas de obtenerlo:
 ### Modo agencia (Tech Provider) — para agencias
 
 Tu plataforma de agencia ya hace el Embedded Signup y guarda los tokens de tus
-clientes; la instancia de Vocero del cliente solo recibe su token. El webhook
+clientes; la instancia de Parley del cliente solo recibe su token. El webhook
 del cliente se conecta con el **override de callback por WABA**:
 
 ```text
@@ -226,7 +226,7 @@ del cliente se conecta con el **override de callback por WABA**:
         │  webhooks (override_callback_uri)
         ▼
    ┌────────────────────────────┐      ┌─────────────────────────────┐
-   │  Instancia Vocero          │      │  Backend de TU agencia      │
+   │  Instancia Parley          │      │  Backend de TU agencia      │
    │  (VPS del cliente)         │      │  (Embedded Signup + tokens) │
    │  /api/webhooks/wa/<token>  │      └──────────────┬──────────────┘
    └────────────▲───────────────┘                     │
@@ -273,13 +273,13 @@ del cliente se conecta con el **override de callback por WABA**:
 >
 > ℹ️ **Limitación conocida de Meta**: los eventos de estado de PLANTILLAS
 > (`message_template_status_update`) no siguen el override de callback — van a
-> la app dueña. Por eso Vocero también **sincroniza plantillas por la API de
+> la app dueña. Por eso Parley también **sincroniza plantillas por la API de
 > Graph** (botón "Sincronizar" en Configuración → Plantillas), así el modo
 > agencia ve las aprobaciones igual.
 
 ## Canales opcionales: Instagram y Messenger
 
-WhatsApp es el canal por el que existe Vocero y siempre está encendido. Los
+WhatsApp es el canal por el que existe Parley y siempre está encendido. Los
 demás viajan en el mismo código, **apagados por defecto** ([ADR-001](docs/adr-001-canales-opcionales.md)):
 una instancia que no los usa no ve pantallas, webhooks ni variables suyas.
 Se encienden con una variable de despliegue:
@@ -301,27 +301,27 @@ Dos formas de traer los mensajes; se elige en **Configuración → Messenger**.
 1. Vincula la página de Facebook en el panel de [Zernio](https://zernio.com) y
    copia el `accountId` de esa cuenta. Crea una API key (Settings → API Keys;
    se muestra una sola vez).
-2. En Vocero, **Configuración → Messenger**: elige *Zernio*, pega el
+2. En Parley, **Configuración → Messenger**: elige *Zernio*, pega el
    `accountId`, la API key y —recomendado— un secreto de webhook. Pulsa
    *Probar y guardar*: la llave se valida contra Zernio antes de guardarse
    cifrada, y la pantalla te enseña la URL de callback.
 3. En Zernio, da de alta ese endpoint con el evento `message.received` y el
    mismo secreto. El webhook de Zernio entrega todas tus plataformas por la
-   misma URL; Vocero solo ingiere aquí lo de Facebook.
+   misma URL; Parley solo ingiere aquí lo de Facebook.
 
 **Con una app propia de Meta**:
 
 1. En [developers.facebook.com](https://developers.facebook.com) crea (o usa)
    una app con el producto **Messenger** y genera el **token de acceso de la
    página** con el permiso `pages_messaging`. Anota el **ID de la página**.
-2. En Vocero, **Configuración → Messenger**: elige *App propia de Meta*, pega
+2. En Parley, **Configuración → Messenger**: elige *App propia de Meta*, pega
    el ID y el token y pulsa *Probar y guardar*.
 3. En la app de Meta, **Messenger → Webhooks**: objeto `page`, campo
    `messages`, esa URL de callback y el token de verificación que enseña la
    pantalla. Suscribe la página a la app.
 
 Desde ese momento, lo que la gente le escribe a la página entra a la bandeja
-como `Messenger`, con el nombre de su perfil, y lo que respondas desde Vocero
+como `Messenger`, con el nombre de su perfil, y lo que respondas desde Parley
 (tú o el agente) llega a su chat. Fuera de la ventana de 24 h la respuesta sale
 con la etiqueta `HUMAN_AGENT` de Meta (hasta 7 días); no hay plantillas.
 Hoy el canal es de texto: los adjuntos que te manden se ven como
@@ -358,13 +358,13 @@ clientes reales.
 ## Cumplimiento con las políticas de Meta
 
 1. **Opt-in**: escribe solo a personas que iniciaron la conversación o
-   aceptaron recibir mensajes; Vocero respeta la ventana de 24 h y bloquea el
+   aceptaron recibir mensajes; Parley respeta la ventana de 24 h y bloquea el
    texto libre fuera de ella.
 2. **Plantillas aprobadas** para reabrir conversaciones: nada de trucos para
    saltarse la aprobación de Meta.
 3. **El Laboratorio es 100 % interno**: los clientes simulados jamás tocan la
    API de WhatsApp (bloqueado por diseño y verificado con tests).
-4. **Sin spam ni broadcast**: Vocero no incluye envíos masivos; úsalo para
+4. **Sin spam ni broadcast**: Parley no incluye envíos masivos; úsalo para
    conversaciones reales de venta y soporte.
 5. **Datos del cliente en su servidor**: cada negocio aloja su instancia; el
    token va cifrado en reposo y los webhooks se validan por URL secreta y
@@ -387,7 +387,7 @@ Configuración → WhatsApp. Si dice "reconectar", el token expiró: pega uno
 nuevo. En modo directo usa un token de usuario del sistema (no expira).
 
 **Error 131030 al enviar** — El número destino no está en la lista de
-permitidos (números de prueba de Meta) o el formato es inválido. Vocero ya
+permitidos (números de prueba de Meta) o el formato es inválido. Parley ya
 normaliza los números de México (521 → 52).
 
 **El agente no responde** — ¿Token de IA configurado? ¿Toggle global
@@ -400,7 +400,7 @@ base64 (44 caracteres): `openssl rand -base64 32`.
 **La app arranca pero /api/health falla** — La base de datos no está lista o
 `DATABASE_URL` apunta mal; revisa los logs (`docker compose logs app`).
 
-**Olvidé mi contraseña y no puedo entrar** — Vocero no manda correos (sería una
+**Olvidé mi contraseña y no puedo entrar** — Parley no manda correos (sería una
 dependencia externa) y el registro público se cierra con la primera
 organización, así que no hay flujo de "olvidé mi contraseña". La salida es
 reescribir el hash en la base:

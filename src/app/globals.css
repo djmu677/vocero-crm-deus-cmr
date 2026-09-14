@@ -3,9 +3,8 @@
 @tailwind utilities;
 
 /*
-  Sistema de diseño de Vocero: la misma marca que vocerocrm.com dentro del CRM.
-  Papel frío (#f6f8fc), tinta azul marino, acento azul eléctrico con remate
-  cian, tipografía Archivo para la interfaz, Instrument Serif itálica para los
+  Sistema visual de Parley. Papel frío, tinta azul marino, acento índigo con
+  señal turquesa, tipografía Archivo para la interfaz, Instrument Serif para los
   acentos editoriales e IBM Plex Mono para etiquetas y horas.
 
   El tema activo se selecciona con `data-theme` en <html> (ver src/lib/theme.ts):
@@ -16,6 +15,21 @@
 @layer base {
   :root {
     color-scheme: light;
+
+    /* Escala común: 4, 8, 12, 16, 24, 32 y 48 px. */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-12: 3rem;
+    --page-gutter: 1.5rem;
+    --content-narrow: 42rem;
+    --content-wide: 48rem;
+    --control-compact: 2rem;
+    --control-default: 2.25rem;
+    --control-comfortable: 2.5rem;
 
     /* Neutros: papel frío de la landing */
     --bg: #ffffff;
@@ -37,13 +51,15 @@
     --bubble-out-border: var(--accent-soft);
     --bubble-out-text: var(--text);
 
-    /* Acento (default: azul Vocero; el white-label lo sobreescribe) */
-    --accent: #0d5bff;
-    --accent-hover: #0a4de6;
-    --accent-soft: #d3e2ff;
-    --accent-tint: #ebf1ff;
-    --accent-text: #0038d8;
+    /* Identidad Parley; el white-label puede sobreescribir el acento. */
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --accent-soft: #c7d2fe;
+    --accent-tint: #eef2ff;
+    --accent-text: #3730a3;
     --accent-fg: #ffffff;
+    --brand-signal: #14b8a6;
+    --brand-signal-soft: #ccfbf1;
     /* Velo translúcido ENCIMA del acento (contadores dentro de un chip). */
     --accent-veil: rgba(255, 255, 255, 0.22);
     --bg-active: var(--accent-tint);
@@ -65,16 +81,16 @@
     --danger-text: #b73535;
     --danger-fg: #ffffff;
 
-    --info: #0d5bff;
-    --info-tint: #ebf1ff;
-    --info-soft: #d3e2ff;
-    --info-text: #0038d8;
+    --info: #2563eb;
+    --info-tint: #eff6ff;
+    --info-soft: #bfdbfe;
+    --info-text: #1d4ed8;
 
     /* Superficies auxiliares */
     --overlay: rgba(4, 16, 46, 0.55);
     --knob: #ffffff;
 
-    /* Radios y sombras (las de la landing, con tinte azul marino) */
+    /* Radios, foco y sombras. */
     --radius-sm: 9px;
     --radius: 12px;
     --radius-lg: 16px;
@@ -82,6 +98,7 @@
     --shadow-md: 0 14px 40px -16px rgba(8, 27, 82, 0.16);
     --shadow-pop: 0 30px 80px -20px rgba(8, 27, 82, 0.22),
       0 8px 24px -12px rgba(8, 27, 82, 0.12);
+    --focus-width: 3px;
 
     /* Densidad de filas de conversación */
     --row-py: 11px;
@@ -107,14 +124,16 @@
     --bubble-in: #0f2419;
     --bubble-in-border: #1c3b2a;
 
-    /* Acento: respaldo con el azul Vocero ya aclarado para fondo oscuro; el
+    /* Acento Parley aclarado para fondo oscuro; el
        white-label lo recalcula (ver resolveAccentSet en lib/branding). */
-    --accent: #256bff;
-    --accent-hover: #4883ff;
-    --accent-soft: #122c64;
-    --accent-tint: #0e1e41;
-    --accent-text: #6294ff;
-    --accent-fg: #ffffff;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-soft: #312e81;
+    --accent-tint: #1e1b4b;
+    --accent-text: #a5b4fc;
+    --accent-fg: #0b1020;
+    --brand-signal: #2dd4bf;
+    --brand-signal-soft: #134e4a;
     --accent-veil: rgba(0, 0, 0, 0.22);
 
     /* Estado sobre fondo oscuro */
@@ -247,6 +266,20 @@
   /* Etiqueta editorial en mono: "01 · BANDEJA", "ETAPA", "NOTAS" */
   .kicker {
     @apply font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-text-3;
+  }
+
+  /* Roles tipográficos para que los módulos nuevos no inventen escalas. */
+  .page-title {
+    @apply text-[17px] font-bold leading-tight tracking-tight;
+  }
+  .section-title {
+    @apply text-base font-bold leading-tight tracking-tight;
+  }
+  .body-copy {
+    @apply text-sm leading-6 text-text-2;
+  }
+  .caption {
+    @apply text-xs leading-5 text-text-3;
   }
 }
 

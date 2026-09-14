@@ -1,4 +1,5 @@
 import { DEFAULT_CURRENCY, isCurrency, type Currency } from "@/lib/money";
+import { PARLEY_BRAND } from "@/lib/design-system";
 
 /**
  * White-label: nombre del CRM, acento y moneda por organización.
@@ -45,23 +46,28 @@ export type Branding = {
 };
 
 export const DEFAULT_BRANDING: Branding = {
-  name: "Vocero",
-  // El azul eléctrico de vocerocrm.com: la instancia recién instalada se ve
-  // igual que la landing. Una agencia lo cambia en Configuración → Marca.
-  accent: "#0d5bff",
+  name: PARLEY_BRAND.name,
+  accent: PARLEY_BRAND.primary,
   currency: DEFAULT_CURRENCY,
   favicon: null,
 };
 
 /**
- * Presets. El primero es la marca Vocero (valores exactos de la landing); los
+ * Presets. El primero es la marca Parley; los
  * demás son los tonos sobrios del handoff Atlas, que siguen disponibles para
  * quien quiera un CRM más discreto.
  */
 export const ACCENT_PRESETS: Record<string, { label: string; set: AccentSet }> = {
-  "#0d5bff": {
-    label: "Azul Vocero",
-    set: { accent: "#0d5bff", hover: "#0a4de6", soft: "#d3e2ff", tint: "#ebf1ff", text: "#0038d8", fg: "#ffffff" },
+  [PARLEY_BRAND.primary]: {
+    label: "Índigo Parley",
+    set: {
+      accent: PARLEY_BRAND.primary,
+      hover: PARLEY_BRAND.primaryHover,
+      soft: PARLEY_BRAND.primarySoft,
+      tint: PARLEY_BRAND.primaryTint,
+      text: PARLEY_BRAND.primaryText,
+      fg: PARLEY_BRAND.primaryForeground,
+    },
   },
   "#3f5972": {
     label: "Azul acero",
@@ -210,7 +216,14 @@ export function accentCssVariables(accentHex: string): string {
 }
 
 export function normalizeBranding(input: Partial<Branding> | null): Branding {
-  const name = input?.name?.trim().slice(0, 30) || DEFAULT_BRANDING.name;
+  const storedName = input?.name?.trim().slice(0, 30);
+  // Compatibilidad con organizaciones creadas antes del cambio de nombre:
+  // el nombre predeterminado histórico no debe sobrevivir indefinidamente en
+  // la interfaz, pero cualquier marca blanca personalizada se conserva.
+  const name =
+    storedName?.toLocaleLowerCase("es") === "vocero"
+      ? DEFAULT_BRANDING.name
+      : storedName || DEFAULT_BRANDING.name;
   const accent =
     input?.accent && isValidHex(input.accent)
       ? input.accent.toLowerCase()

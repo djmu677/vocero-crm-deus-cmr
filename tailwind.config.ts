@@ -3,7 +3,7 @@ import animate from "tailwindcss-animate";
 
 /**
  * Los nombres semánticos existentes (background, primary, muted…) se remapean
- * a los tokens del sistema de diseño de Vocero (la marca de vocerocrm.com) para
+ * a los tokens del sistema visual de Parley para
  * que toda la app comparta el tema activo (claro u oscuro, ver globals.css);
  * la escala `brand-*` expone el acento white-label y las escalas de estado
  * exponen la tríada tint/soft/text.
@@ -64,6 +64,8 @@ const config: Config = {
           text: "var(--accent-text)",
           fg: "var(--accent-fg)",
           veil: "var(--accent-veil)",
+          signal: "var(--brand-signal)",
+          "signal-soft": "var(--brand-signal-soft)",
         },
         "text-2": "var(--text-2)",
         "text-3": "var(--text-3)",
@@ -110,6 +112,16 @@ const config: Config = {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         pop: "var(--shadow-pop)",
+      },
+      spacing: {
+        page: "var(--page-gutter)",
+        "control-sm": "var(--control-compact)",
+        control: "var(--control-default)",
+        "control-lg": "var(--control-comfortable)",
+      },
+      maxWidth: {
+        "content-narrow": "var(--content-narrow)",
+        "content-wide": "var(--content-wide)",
       },
       // Las tres voces de la marca (ver src/app/layout.tsx, donde next/font
       // las descarga en build y las sirve self-hosted, sin CDN en runtime).
