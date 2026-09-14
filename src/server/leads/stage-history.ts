@@ -4,7 +4,7 @@ import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
 import type { LossReason, StageChangeSource } from "@/lib/types";
 import { reportStageChange } from "@/server/attribution/conversions";
-import { sendOrderAlert } from "@/server/telegram/order-alert";
+import { processTelegramOrderAlert } from "@/server/telegram/order-alert";
 import { automaticPriorityForStage } from "@/server/leads/priority";
 
 /**
@@ -67,7 +67,7 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
   // llamada de red dentro de la transacción la mantendría abierta mientras
   // Meta piensa, y una conversión jamás vale una transacción larga.
   let toStageKind: "open" | "won" | "lost" | null = null;
-  let toBotStageKey: "conversation" | "interested" | "order" | null = null;
+  let telegramAlertId: string | null = null;
 
   const result = await db.transaction(async (tx) => {
     const leadRows = await tx
@@ -112,7 +112,6 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
 
     const changed = current.lead.stageId !== target.id;
     toStageKind = target.kind;
-    toBotStageKey = target.botStageKey;
     const automaticPriority =
       input.source === "bot" ? automaticPriorityForStage(target.botStageKey) : null;
 
@@ -163,6 +162,21 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
         lossReason: target.kind === "lost" ? input.lossReason ?? null : null,
         lossNote: target.kind === "lost" ? input.lossNote ?? null : null,
       });
+
+      if (target.botStageKey === "order") {
+        const alertId = newId("telegramOrderAlert");
+        const inserted = await tx
+          .insert(schema.telegramOrderAlert)
+          .values({
+            id: alertId,
+            organizationId: input.organizationId,
+            leadId: leadRow.id,
+            contactId: leadRow.contactId,
+          })
+          .onConflictDoNothing()
+          .returning({ id: schema.telegramOrderAlert.id });
+        telegramAlertId = inserted[0]?.id ?? null;
+      }
     }
 
     return { ok: true as const, lead: leadRow, changed };
@@ -182,15 +196,11 @@ export async function moveLeadToStage(input: MoveInput): Promise<MoveResult> {
     });
   }
 
-  // Un aviso sale únicamente después del commit y al ENTRAR a la etapa que el
-  // negocio marcó semánticamente como Pedido. Renombrar la columna no lo rompe,
-  // y reordenar dentro de Pedido (`changed=false`) no genera otro mensaje.
-  if (result.ok && result.changed && toBotStageKey === "order") {
-    await sendOrderAlert({
-      organizationId: input.organizationId,
-      leadId: result.lead.id,
-      contactId: result.lead.contactId,
-    });
+  // La fila durable nació DENTRO de la transacción. El primer intento ocurre
+  // después del commit; si falla, el worker continuará desde `nextAttemptAt`.
+  // `telegramAlertId=null` significa que el UNIQUE deduplicó este pedido.
+  if (result.ok && telegramAlertId) {
+    await processTelegramOrderAlert(telegramAlertId);
   }
 
   return result;

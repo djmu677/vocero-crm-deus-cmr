@@ -30,6 +30,7 @@ const prefixes = {
   conversionEvent: "cve",
   capiSettings: "capi",
   telegramAlertSettings: "tga",
+  telegramOrderAlert: "toa",
   quoteCatalogSettings: "qcs",
 } as const;
 

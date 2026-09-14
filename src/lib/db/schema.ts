@@ -1078,6 +1078,52 @@ export const telegramAlertSettings = pgTable(
   (t) => [uniqueIndex("telegram_alert_settings_org_uq").on(t.organizationId)]
 );
 
+/**
+ * Outbox durable de Telegram. La fila nace en la misma transacción que mueve
+ * el lead a Pedido; el índice único convierte reintentos y carreras en una
+ * sola alerta por trato.
+ */
+export const telegramOrderAlert = pgTable(
+  "telegram_order_alert",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    leadId: text("lead_id")
+      .notNull()
+      .references(() => lead.id, { onDelete: "cascade" }),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contact.id, { onDelete: "cascade" }),
+    status: text("status", {
+      enum: ["pending", "sending", "retrying", "sent", "failed", "skipped"],
+    })
+      .notNull()
+      .default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    lastAttemptAt: timestamp("last_attempt_at"),
+    lockedAt: timestamp("locked_at"),
+    sentAt: timestamp("sent_at"),
+    telegramMessageId: text("telegram_message_id"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("telegram_order_alert_org_lead_uq").on(
+      t.organizationId,
+      t.leadId
+    ),
+    index("telegram_order_alert_due_idx").on(t.status, t.nextAttemptAt),
+    index("telegram_order_alert_org_created_idx").on(
+      t.organizationId,
+      t.createdAt
+    ),
+  ]
+);
+
 /** Catálogo de precios determinista por negocio. Los importes son centavos. */
 export const quoteCatalogSettings = pgTable(
   "quote_catalog_settings",
