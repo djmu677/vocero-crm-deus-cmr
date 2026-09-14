@@ -8,7 +8,6 @@ import { resolveBotStage, type BotStage } from "@/server/bot/stage";
 import { COMMERCIAL_EVIDENCE_KEYS } from "@/server/bot/stage-evidence";
 import { publish } from "@/server/events/bus";
 import { moveLeadToStage } from "@/server/leads/stage-history";
-import { quoteConversationOrder } from "@/server/quotes/order";
 
 export const dynamic = "force-dynamic";
 
@@ -135,28 +134,6 @@ export async function POST(req: Request) {
       "backward_stage",
       "El bot no puede retroceder un lead en el pipeline"
     );
-  }
-
-  // Si el negocio activó el cotizador, Pedido solo nace con un precio vigente
-  // calculado por servidor. Sin configuración se conserva el comportamiento
-  // anterior y la comanda muestra "No informado".
-  if (decision.target.botStageKey === "order") {
-    const priced = await quoteConversationOrder({
-      organizationId,
-      conversationId: body.data.conversationId,
-    });
-    if (priced?.available && !priced.quote.ok) {
-      return Response.json(
-        {
-          error: {
-            code: "quote_incomplete",
-            message: priced.quote.message,
-            quoteCode: priced.quote.code,
-          },
-        },
-        { status: 409 }
-      );
-    }
   }
 
   const result = await moveLeadToStage({

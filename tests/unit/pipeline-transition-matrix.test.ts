@@ -61,7 +61,7 @@ const cases: TransitionCase[] = [
     expected: { ok: true, stage: "Interesado" },
   },
   {
-    name: "un pedido incompleto permanece en Interesado",
+    name: "una intención inequívoca avanza a Pedido aunque falten detalles",
     current: "Interesado",
     target: "Pedido",
     evidence: [
@@ -69,16 +69,7 @@ const cases: TransitionCase[] = [
       "order_confirmation",
       "delivery_commune",
     ],
-    expected: {
-      ok: false,
-      reason: "insufficient_evidence",
-      missing: [
-        "quantity_confirmed",
-        "configuration_complete",
-        "delivery_address",
-        "recipient_confirmed",
-      ],
-    },
+    expected: { ok: true, stage: "Pedido" },
   },
   {
     name: "un pedido completo avanza a Pedido",

@@ -14,6 +14,7 @@ describe("P02 · contrato de evidencia comercial", () => {
     expect(contract.anyOf).toEqual([
       "commercial_question",
       "product_identified",
+      "four_customer_turns",
     ]);
     expect(contract.blockerCodes).toContain("greeting_only");
   });
@@ -34,22 +35,14 @@ describe("P02 · contrato de evidencia comercial", () => {
     ]);
   });
 
-  it("Pedido exige confirmación y todos los datos para ejecutarlo", () => {
+  it("Pedido exige producto e intención inequívoca, no una ficha completa", () => {
     const contract = DEFAULT_SALES_STAGE_EVIDENCE.order;
 
     expect(contract.anyOf).toEqual([]);
-    expect(contract.allOf).toEqual([
-      "product_identified",
-      "order_confirmation",
-      "quantity_confirmed",
-      "configuration_complete",
-      "delivery_commune",
-      "delivery_address",
-      "recipient_confirmed",
-    ]);
+    expect(contract.allOf).toEqual(["product_identified", "order_confirmation"]);
     expect(contract.blockerCodes).toContain("ambiguous_confirmation");
-    expect(contract.blockerCodes).toContain("missing_configuration");
-    expect(contract.blockerCodes).toContain("missing_delivery_address");
+    expect(contract.blockerCodes).not.toContain("missing_configuration");
+    expect(contract.blockerCodes).not.toContain("missing_delivery_address");
   });
 
   it("el vocabulario no contiene claves repetidas ni textos libres", () => {

@@ -7,6 +7,7 @@
 
 export const COMMERCIAL_EVIDENCE_KEYS = [
   "commercial_question",
+  "four_customer_turns",
   "product_identified",
   "product_preference",
   "explicit_interest",
@@ -54,9 +55,10 @@ export interface StageEvidenceContract {
 }
 
 /**
- * Política comercial inicial. Es deliberadamente independiente del rubro:
- * `configuration_complete` representa los campos que cada tenant defina para
- * su producto (por ejemplo tela, color, brazos o patas en una mueblería).
+ * Política comercial inicial. Es deliberadamente independiente del rubro.
+ * "Pedido" representa la decisión comercial inequívoca de comprar; la ficha,
+ * configuración, entrega y cotización pueden completarse después con ayuda
+ * del agente o de una persona, sin retroceder la tarjeta.
  */
 export const DEFAULT_SALES_STAGE_EVIDENCE: Readonly<
   Record<SemanticSalesStage, StageEvidenceContract>
@@ -65,7 +67,7 @@ export const DEFAULT_SALES_STAGE_EVIDENCE: Readonly<
     stage: "conversation",
     defaultLabel: "En conversación",
     allOf: [],
-    anyOf: ["commercial_question", "product_identified"],
+    anyOf: ["commercial_question", "product_identified", "four_customer_turns"],
     blockerCodes: ["greeting_only", "generic_question_only"],
     achievement:
       "El lead dejó el saludo y comenzó una conversación comercial real.",
@@ -87,27 +89,11 @@ export const DEFAULT_SALES_STAGE_EVIDENCE: Readonly<
   order: {
     stage: "order",
     defaultLabel: "Pedido",
-    allOf: [
-      "product_identified",
-      "order_confirmation",
-      "quantity_confirmed",
-      "configuration_complete",
-      "delivery_commune",
-      "delivery_address",
-      "recipient_confirmed",
-    ],
+    allOf: ["product_identified", "order_confirmation"],
     anyOf: [],
-    blockerCodes: [
-      "missing_product",
-      "ambiguous_confirmation",
-      "missing_quantity",
-      "missing_configuration",
-      "missing_delivery_commune",
-      "missing_delivery_address",
-      "missing_recipient",
-    ],
+    blockerCodes: ["missing_product", "ambiguous_confirmation"],
     achievement:
-      "El cliente confirmó un pedido ejecutable con producto, configuración y entrega completas.",
+      "El cliente identificó el producto y manifestó inequívocamente que desea comprarlo o pedirlo.",
   },
 } as const;
 
