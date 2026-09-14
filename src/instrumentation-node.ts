@@ -27,3 +27,11 @@ export async function cleanupOrphanRuns(): Promise<void> {
     console.error("[boot] limpieza de corridas huérfanas falló:", err);
   }
 }
+
+/** Arranca las colas durables que deben sobrevivir a fallos temporales. */
+export async function startBackgroundWorkers(): Promise<void> {
+  const { startTelegramAlertWorker } = await import(
+    "@/server/telegram/worker"
+  );
+  startTelegramAlertWorker();
+}
