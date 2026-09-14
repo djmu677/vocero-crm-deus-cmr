@@ -1,7 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { getTelegramBot, sendTelegramMessage } from "@/server/telegram/client";
-import { buildOrderAlertText } from "@/server/telegram/order-alert";
+import {
+  getTelegramBot,
+  sendTelegramMessage,
+  TelegramApiError,
+} from "@/server/telegram/client";
+import {
+  buildOrderAlertText,
+  isTemporaryTelegramFailure,
+  telegramRetryDelayMs,
+  TELEGRAM_ALERT_MAX_ATTEMPTS,
+} from "@/server/telegram/order-alert";
 
 describe("cliente oficial de Telegram", () => {
   it("envía JSON al método sendMessage con el chat exacto", async () => {
@@ -63,6 +72,41 @@ describe("cliente oficial de Telegram", () => {
     await expect(
       getTelegramBot("123:supersecret", fetcher as typeof fetch)
     ).rejects.not.toThrow("supersecret");
+  });
+
+  it("conserva el retry_after oficial cuando Telegram limita solicitudes", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: false,
+            description: "Too Many Requests",
+            parameters: { retry_after: 45 },
+          }),
+          { status: 429, headers: { "content-type": "application/json" } }
+        )
+    );
+    await expect(
+      sendTelegramMessage("123:secret", "-10042", "Pedido", fetcher)
+    ).rejects.toMatchObject({ status: 429, retryAfterSeconds: 45 });
+  });
+});
+
+describe("política de reintentos Telegram", () => {
+  it("usa backoff creciente y un máximo explícito", () => {
+    expect(telegramRetryDelayMs(1)).toBe(30_000);
+    expect(telegramRetryDelayMs(2)).toBe(120_000);
+    expect(telegramRetryDelayMs(3)).toBe(600_000);
+    expect(telegramRetryDelayMs(99)).toBe(7_200_000);
+    expect(TELEGRAM_ALERT_MAX_ATTEMPTS).toBe(6);
+  });
+
+  it("reintenta red, límites y servidor; no credenciales inválidas", () => {
+    expect(isTemporaryTelegramFailure(new TypeError("network error"))).toBe(true);
+    expect(isTemporaryTelegramFailure(new TelegramApiError("limit", 429))).toBe(true);
+    expect(isTemporaryTelegramFailure(new TelegramApiError("upstream", 503))).toBe(true);
+    expect(isTemporaryTelegramFailure(new TelegramApiError("unauthorized", 401))).toBe(false);
+    expect(isTemporaryTelegramFailure(new TelegramApiError("bad request", 400))).toBe(false);
   });
 });
 
@@ -150,25 +194,41 @@ describe("comanda operativa del pedido", () => {
 describe("guardarraíles del disparador", () => {
   const gate = readFileSync("src/server/leads/stage-history.ts", "utf8");
   const sender = readFileSync("src/server/telegram/order-alert.ts", "utf8");
+  const schema = readFileSync("src/lib/db/schema.ts", "utf8");
+  const worker = readFileSync("src/server/telegram/worker.ts", "utf8");
+  const boot = readFileSync("src/instrumentation.ts", "utf8");
 
-  it("solo dispara después de una transición confirmada a la clave order", () => {
-    expect(gate).toContain(
-      'result.ok && result.changed && toBotStageKey === "order"'
-    );
+  it("registra la alerta dentro de la transición y la envía después del commit", () => {
+    expect(gate).toContain('target.botStageKey === "order"');
+    expect(gate).toContain("schema.telegramOrderAlert");
+    expect(gate).toContain("onConflictDoNothing");
     const txEnd = gate.indexOf("  });");
-    expect(gate.indexOf("sendOrderAlert(", txEnd)).toBeGreaterThan(txEnd);
+    expect(gate.indexOf("processTelegramOrderAlert(", txEnd)).toBeGreaterThan(txEnd);
+  });
+
+  it("deduplica por organización y lead mediante un UNIQUE real", () => {
+    expect(schema).toContain('"telegram_order_alert"');
+    expect(schema).toContain('uniqueIndex("telegram_order_alert_org_lead_uq")');
+    expect(schema).toContain("t.organizationId");
+    expect(schema).toContain("t.leadId");
+  });
+
+  it("el worker arranca con el servidor y recupera filas vencidas", () => {
+    expect(boot).toContain("startBackgroundWorkers");
+    expect(worker).toContain("processDueTelegramOrderAlerts");
+    expect(worker).toContain("setInterval");
   });
 
   it("el Laboratorio y otra organización quedan fuera", () => {
     expect(sender).toContain("eq(schema.conversation.isTest, false)");
     expect(sender).toContain(
-      "eq(schema.lead.organizationId, input.organizationId)"
+      "eq(schema.lead.organizationId, alert.organizationId)"
     );
     expect(sender).toContain(
-      "eq(schema.contact.organizationId, input.organizationId)"
+      "eq(schema.contact.organizationId, alert.organizationId)"
     );
     expect(sender).toContain(
-      "eq(schema.conversation.organizationId, input.organizationId)"
+      "eq(schema.conversation.organizationId, alert.organizationId)"
     );
   });
 });
