@@ -1,8 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, or } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { getEnv } from "@/lib/env";
 import { getBranding } from "@/server/branding";
-import { sendTelegramMessage } from "@/server/telegram/client";
+import {
+  sendTelegramMessage,
+  TelegramApiError,
+} from "@/server/telegram/client";
 import { getTelegramSettings } from "@/server/telegram/settings";
 
 type Ficha = Record<string, unknown>;
@@ -224,14 +227,93 @@ export function buildOrderAlertText(input: {
   ].join("\n");
 }
 
-export async function sendOrderAlert(input: {
-  organizationId: string;
-  leadId: string;
-  contactId: string;
-}): Promise<"sent" | "skipped" | "failed"> {
+type AlertRow = typeof schema.telegramOrderAlert.$inferSelect;
+
+export const TELEGRAM_ALERT_MAX_ATTEMPTS = 6;
+const TELEGRAM_ALERT_LOCK_MS = 2 * 60_000;
+const RETRY_DELAYS_MS = [30_000, 2 * 60_000, 10 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
+
+export function telegramRetryDelayMs(attemptCount: number): number {
+  return RETRY_DELAYS_MS[
+    Math.min(Math.max(attemptCount - 1, 0), RETRY_DELAYS_MS.length - 1)
+  ]!;
+}
+
+export function isTemporaryTelegramFailure(error: unknown): boolean {
+  if (error instanceof TelegramApiError) {
+    return error.status === 429 || error.status >= 500;
+  }
+  return true;
+}
+
+function safeError(error: unknown): string {
+  return (error instanceof Error ? error.message : "error desconocido").slice(0, 500);
+}
+
+/** Reclama una fila con compare-and-set; dos réplicas no pueden enviarla juntas. */
+async function claimTelegramAlert(id?: string): Promise<AlertRow | null> {
+  const db = getDb();
+  const now = new Date();
+  const stale = new Date(now.getTime() - TELEGRAM_ALERT_LOCK_MS);
+  const due = or(
+    and(
+      inArray(schema.telegramOrderAlert.status, ["pending", "retrying"]),
+      lte(schema.telegramOrderAlert.nextAttemptAt, now)
+    ),
+    and(
+      eq(schema.telegramOrderAlert.status, "sending"),
+      lte(schema.telegramOrderAlert.lockedAt, stale)
+    )
+  );
+  const candidates = await db
+    .select()
+    .from(schema.telegramOrderAlert)
+    .where(id ? and(eq(schema.telegramOrderAlert.id, id), due) : due)
+    .orderBy(asc(schema.telegramOrderAlert.nextAttemptAt))
+    .limit(1);
+  const candidate = candidates[0];
+  if (!candidate) return null;
+
+  const claimed = await db
+    .update(schema.telegramOrderAlert)
+    .set({
+      status: "sending",
+      attemptCount: candidate.attemptCount + 1,
+      lastAttemptAt: now,
+      lockedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(schema.telegramOrderAlert.id, candidate.id),
+        eq(schema.telegramOrderAlert.status, candidate.status),
+        eq(schema.telegramOrderAlert.attemptCount, candidate.attemptCount)
+      )
+    )
+    .returning();
+  return claimed[0] ?? null;
+}
+
+async function markAlert(
+  id: string,
+  patch: Partial<typeof schema.telegramOrderAlert.$inferInsert>
+): Promise<void> {
+  await getDb()
+    .update(schema.telegramOrderAlert)
+    .set({ ...patch, lockedAt: null, updatedAt: new Date() })
+    .where(eq(schema.telegramOrderAlert.id, id));
+}
+
+async function deliverClaimedAlert(alert: AlertRow): Promise<void> {
   try {
-    const settings = await getTelegramSettings(input.organizationId);
-    if (!settings?.enabled) return "skipped";
+    const settings = await getTelegramSettings(alert.organizationId);
+    if (!settings?.enabled) {
+      await markAlert(alert.id, {
+        status: "skipped",
+        lastError: "Telegram no está configurado o está desactivado",
+      });
+      return;
+    }
 
     const rows = await getDb()
       .select({
@@ -246,53 +328,98 @@ export async function sendOrderAlert(input: {
         schema.contact,
         and(
           eq(schema.contact.id, schema.lead.contactId),
-          eq(schema.contact.organizationId, input.organizationId)
+          eq(schema.contact.organizationId, alert.organizationId)
         )
       )
       .innerJoin(
         schema.conversation,
         and(
           eq(schema.conversation.contactId, schema.contact.id),
-          eq(schema.conversation.organizationId, input.organizationId),
+          eq(schema.conversation.organizationId, alert.organizationId),
           eq(schema.conversation.isTest, false)
         )
       )
       .where(
         and(
-          eq(schema.lead.id, input.leadId),
-          eq(schema.lead.contactId, input.contactId),
-          eq(schema.lead.organizationId, input.organizationId)
+          eq(schema.lead.id, alert.leadId),
+          eq(schema.lead.contactId, alert.contactId),
+          eq(schema.lead.organizationId, alert.organizationId)
         )
       )
       .limit(1);
     const row = rows[0];
-    if (!row) return "skipped";
+    if (!row) {
+      await markAlert(alert.id, {
+        status: "skipped",
+        lastError: "Pedido de prueba o datos del tenant no disponibles",
+      });
+      return;
+    }
 
     const base = getEnv().APP_BASE_URL.replace(/\/$/, "");
-    const branding = await getBranding(input.organizationId);
+    const branding = await getBranding(alert.organizationId);
     const text = buildOrderAlertText({
-      leadId: input.leadId,
+      leadId: alert.leadId,
       contactName: row.contactName,
       contactPhone: row.contactPhone,
       ficha: row.ficha,
       amountCents: row.amountCents,
       currency: row.currency ?? branding.currency,
-      conversationUrl: `${base}/inbox?contact=${encodeURIComponent(input.contactId)}`,
+      conversationUrl: `${base}/inbox?contact=${encodeURIComponent(alert.contactId)}`,
     });
-    await sendTelegramMessage(
+    const sent = await sendTelegramMessage(
       settings.token,
       settings.chatId,
       text,
       undefined,
       { parseMode: "HTML" }
     );
-    return "sent";
+    await markAlert(alert.id, {
+      status: "sent",
+      telegramMessageId: String(sent.message_id),
+      sentAt: new Date(),
+      lastError: null,
+    });
   } catch (error) {
+    const retry =
+      isTemporaryTelegramFailure(error) &&
+      alert.attemptCount < TELEGRAM_ALERT_MAX_ATTEMPTS;
+    const retryDelay =
+      error instanceof TelegramApiError && error.retryAfterSeconds
+        ? Math.max(error.retryAfterSeconds * 1000, telegramRetryDelayMs(alert.attemptCount))
+        : telegramRetryDelayMs(alert.attemptCount);
+    await markAlert(alert.id, {
+      status: retry ? "retrying" : "failed",
+      nextAttemptAt: retry
+        ? new Date(Date.now() + retryDelay)
+        : alert.nextAttemptAt,
+      lastError: safeError(error),
+    });
     console.warn(
-      `[telegram] no se pudo avisar el pedido ${input.leadId}: ${
-        error instanceof Error ? error.message : "error desconocido"
-      }`
+      `[telegram] intento ${alert.attemptCount} del pedido ${alert.leadId} ` +
+        `${retry ? "se reintentará" : "falló definitivamente"}: ${safeError(error)}`
     );
-    return "failed";
   }
+}
+
+/** Intenta inmediatamente una alerta ya persistida; nunca lanza al pipeline. */
+export async function processTelegramOrderAlert(id: string): Promise<void> {
+  try {
+    const alert = await claimTelegramAlert(id);
+    if (alert) await deliverClaimedAlert(alert);
+  } catch (error) {
+    console.warn(`[telegram] no se pudo procesar la alerta ${id}: ${safeError(error)}`);
+  }
+}
+
+/** Drena alertas vencidas; lo llama el worker de cada instancia. */
+export async function processDueTelegramOrderAlerts(limit = 20): Promise<number> {
+  let processed = 0;
+  while (processed < limit) {
+    const alert = await claimTelegramAlert();
+    if (!alert) break;
+    await deliverClaimedAlert(alert);
+    processed += 1;
+  }
+  return processed;
 }
