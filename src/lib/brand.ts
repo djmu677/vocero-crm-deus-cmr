@@ -1,38 +1,27 @@
+import { PARLEY_BRAND } from "@/lib/design-system";
+
 /**
- * La marca Vocero — la misma de vocerocrm.com.
- *
- * Vive aquí, sin React, porque la usan dos mundos: los componentes (el trazo
- * del panel lateral y del login) y el servidor (el favicon generado que se
- * sirve como texto). Tener el dibujo en un solo sitio es lo que garantiza que
- * la pestaña y la barra lateral enseñen la MISMA "v".
- *
- * El trazo es una "v" caligráfica fluida con remate cian. El cuerpo se pinta
- * con `currentColor` (así hereda el acento white-label); el remate es una
- * constante de marca y NO se recalcula con el acento: es lo que la hace
- * reconocible.
+ * Identidad de Parley compartida por React y el favicon generado en servidor.
+ * El contorno representa una conversación abierta y la línea turquesa, una
+ * respuesta clara. Mantener una sola geometría evita que la pestaña y la barra
+ * lateral terminen mostrando símbolos distintos.
  */
 
-/** Cuerpo de la "v": se pinta con el color del contexto. */
+/** Globo de conversación: hereda el acento del contexto. */
 export const BRAND_MARK_BODY =
-  "M4 5c2 8 5 14.5 7.8 14.7 2.3.2 3.7-4.1 4.7-8.2";
+  "M7 5.5h10a4 4 0 0 1 4 4v3a4 4 0 0 1-4 4h-5.2L6 20v-4.7a4 4 0 0 1-3-3.8v-2a4 4 0 0 1 4-4Z";
 
-/** Remate corto, siempre cian. */
-export const BRAND_MARK_TAIL = "M16.5 11.5c.8-3 2-5.5 4-6.1";
+/** Respuesta corta: siempre usa la señal turquesa de Parley. */
+export const BRAND_MARK_TAIL = "M9 11h6";
 
-export const BRAND_MARK_STROKE = 3.4;
-
-/** Cian sobre fondos claros (texto azul al lado). */
-export const BRAND_CYAN = "#00c6f5";
-
-/** Cian sobre el mosaico azul: un punto más claro para que no se hunda. */
-export const BRAND_CYAN_ON_TILE = "#3fdcff";
+export const BRAND_MARK_STROKE = 2.2;
+export const BRAND_CYAN = PARLEY_BRAND.signal;
+export const BRAND_CYAN_ON_TILE = PARLEY_BRAND.signalOnTile;
 
 /**
- * ¿Esta instancia se llama Vocero? Solo entonces se dibuja el logo: una
- * agencia que rebautizó el CRM para su cliente no debe ver la "v" de otro
- * producto en su barra lateral ni en su pestaña. El nombre por defecto es
- * "Vocero", así que una instancia sin configurar la ve de inmediato.
+ * Solo la marca predeterminada dibuja el símbolo de Parley. Una organización
+ * rebautizada conserva su inicial y nunca hereda el logo de otro producto.
  */
-export function isVoceroName(name: string): boolean {
-  return name.trim().toLowerCase() === "vocero";
+export function isParleyName(name: string): boolean {
+  return name.trim().toLowerCase() === "parley";
 }

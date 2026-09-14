@@ -2,6 +2,10 @@
 
 Estado del inventario: **completo sobre `main` en `f6e5971`**.
 
+Actualización V02: la identidad visible predeterminada y las primitivas base se
+resolvieron en `docs/design-system-parley.md`. Las tablas siguientes se
+conservan como fotografía de la situación encontrada antes del rediseño.
+
 Este documento es el mapa de entrada para V02. No propone eliminar funciones ni
 cambiar contratos de servidor. Separa lo que ya funciona, lo que debe
 unificarse y lo que todavía conserva el nombre anterior.

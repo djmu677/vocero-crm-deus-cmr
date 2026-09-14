@@ -5,15 +5,14 @@ import {
   BRAND_MARK_BODY,
   BRAND_MARK_STROKE,
   BRAND_MARK_TAIL,
-  isVoceroName,
+  isParleyName,
 } from "@/lib/brand";
 import { faviconInitial } from "@/lib/favicon";
 import { cn } from "@/lib/utils";
 
 /**
- * El trazo de la marca: la "v" caligráfica con remate cian de vocerocrm.com.
- * El cuerpo hereda `currentColor`; píntalo con `text-brand` (o blanco sobre el
- * mosaico) y el remate sigue siendo cian.
+ * El símbolo de Parley: conversación con una respuesta turquesa. El cuerpo
+ * hereda `currentColor`; la señal mantiene el color de identidad.
  */
 export function BrandMark({
   className,
@@ -44,7 +43,7 @@ export function BrandMark({
 
 /**
  * Mosaico cuadrado con degradado del acento: es el favicon en grande. Con la
- * marca Vocero lleva la "v"; con un nombre white-label, la inicial.
+ * marca Parley lleva el símbolo; con un nombre white-label, la inicial.
  */
 export function BrandTile({
   branding,
@@ -61,7 +60,7 @@ export function BrandTile({
       )}
       aria-hidden
     >
-      {isVoceroName(branding.name) ? (
+      {isParleyName(branding.name) ? (
         <BrandMark className="h-[64%] w-[64%]" cyan={BRAND_CYAN_ON_TILE} />
       ) : (
         <span className="font-bold leading-none">{faviconInitial(branding.name)}</span>
@@ -86,8 +85,7 @@ const TILE_SIZE = {
 } as const;
 
 /**
- * La marca completa, como en la cabecera de la landing: trazo + wordmark
- * "vocero" en minúsculas y bien apretado. Una instancia rebautizada ve en su
+ * La marca completa: símbolo + wordmark "parley". Una instancia rebautizada ve en su
  * lugar el mosaico con la inicial y su nombre (white-label).
  */
 export function BrandLogo({
@@ -99,7 +97,7 @@ export function BrandLogo({
   size?: keyof typeof WORDMARK_SIZE;
   className?: string;
 }) {
-  if (isVoceroName(branding.name)) {
+  if (isParleyName(branding.name)) {
     return (
       <span className={cn("flex items-center gap-2 text-foreground", className)}>
         <BrandMark className={cn("shrink-0 text-brand", MARK_SIZE[size])} />
@@ -109,7 +107,7 @@ export function BrandLogo({
             WORDMARK_SIZE[size]
           )}
         >
-          vocero
+          parley
         </span>
       </span>
     );

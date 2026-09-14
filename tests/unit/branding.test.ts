@@ -8,6 +8,7 @@ import {
   normalizeBranding,
   resolveAccentSet,
 } from "@/lib/branding";
+import { PARLEY_BRAND } from "@/lib/design-system";
 
 const DARK_BG = "#0b1327";
 
@@ -46,19 +47,21 @@ describe("white-label: acento", () => {
     expect(lum).toBeLessThan(0xd0);
   });
 
-  it("hex inválido cae al default (el azul Vocero)", () => {
-    expect(resolveAccentSet("rojo")).toEqual(ACCENT_PRESETS["#0d5bff"]!.set);
+  it("hex inválido cae al índigo Parley", () => {
+    expect(resolveAccentSet("rojo")).toEqual(
+      ACCENT_PRESETS[PARLEY_BRAND.primary]!.set
+    );
   });
 
-  it("el azul Vocero es el default y trae los valores exactos de la landing", () => {
-    expect(DEFAULT_BRANDING.accent).toBe("#0d5bff");
+  it("el índigo Parley es el default y trae su set exacto", () => {
+    expect(DEFAULT_BRANDING.accent).toBe(PARLEY_BRAND.primary);
     expect(resolveAccentSet(DEFAULT_BRANDING.accent)).toEqual({
-      accent: "#0d5bff",
-      hover: "#0a4de6",
-      soft: "#d3e2ff",
-      tint: "#ebf1ff",
-      text: "#0038d8",
-      fg: "#ffffff",
+      accent: PARLEY_BRAND.primary,
+      hover: PARLEY_BRAND.primaryHover,
+      soft: PARLEY_BRAND.primarySoft,
+      tint: PARLEY_BRAND.primaryTint,
+      text: PARLEY_BRAND.primaryText,
+      fg: PARLEY_BRAND.primaryForeground,
     });
   });
 });
@@ -88,7 +91,7 @@ describe("white-label: acento en tema oscuro", () => {
 
   it("hex inválido en oscuro también cae al acento por defecto", () => {
     expect(resolveAccentSet("rojo", "dark")).toEqual(
-      resolveAccentSet("#0d5bff", "dark")
+      resolveAccentSet(PARLEY_BRAND.primary, "dark")
     );
   });
 
@@ -112,14 +115,25 @@ describe("white-label: acento en tema oscuro", () => {
 });
 
 describe("white-label: normalización", () => {
-  it("nombre vacío o nulo → default 'Vocero'; se recorta a 30", () => {
-    expect(normalizeBranding(null).name).toBe("Vocero");
-    expect(normalizeBranding({ name: "   " }).name).toBe("Vocero");
+  it("migra el nombre predeterminado histórico a Parley", () => {
+    expect(normalizeBranding({ name: "Vocero" }).name).toBe("Parley");
+    expect(normalizeBranding({ name: "  VOCERO  " }).name).toBe("Parley");
+  });
+
+  it("conserva nombres white-label personalizados", () => {
+    expect(normalizeBranding({ name: "Mi CRM" }).name).toBe("Mi CRM");
+  });
+
+  it("nombre vacío o nulo → default 'Parley'; se recorta a 30", () => {
+    expect(normalizeBranding(null).name).toBe("Parley");
+    expect(normalizeBranding({ name: "   " }).name).toBe("Parley");
     expect(normalizeBranding({ name: "x".repeat(50) }).name).toHaveLength(30);
   });
 
   it("acento inválido → default", () => {
-    expect(normalizeBranding({ accent: "azul" }).accent).toBe("#0d5bff");
+    expect(normalizeBranding({ accent: "azul" }).accent).toBe(
+      PARLEY_BRAND.primary
+    );
     expect(normalizeBranding({ accent: "#3F6B66" }).accent).toBe("#3f6b66");
   });
 });

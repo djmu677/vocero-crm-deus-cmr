@@ -90,18 +90,12 @@ describe("V01 — inventario visual de Parley", () => {
     }
   });
 
-  it("mantiene localizadas las referencias visibles del nombre anterior", () => {
-    expect(source("src/lib/branding.ts")).toContain('name: "Vocero"');
-    expect(source("src/components/settings/branding-client.tsx")).toContain(
-      'placeholder="Vocero"'
-    );
-    expect(source("src/components/inbox/contact-panel.tsx")).toContain(
-      "El agente de Vocero"
-    );
-    expect(source("src/components/settings/messenger-client.tsx")).toContain(
-      "no desde Vocero"
-    );
+  it("conserva el diagnóstico histórico aunque V02 resuelva el nombre", () => {
     expect(inventory).toContain("Referencias visibles que V02 debe convertir a Parley");
+    expect(source("src/lib/branding.ts")).toContain("PARLEY_BRAND.name");
+    expect(source("src/components/settings/branding-client.tsx")).toContain(
+      'placeholder="Parley"'
+    );
   });
 
   it("protege identificadores compatibles que no son identidad visual", () => {
