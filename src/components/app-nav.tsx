@@ -7,6 +7,7 @@ import {
   CalendarDays,
   FlaskConical,
   Inbox,
+  Images,
   Kanban,
   LogOut,
   Settings,
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
   { href: "/pipeline", label: "Pipeline", icon: Kanban },
   { href: "/contacts", label: "Contactos", icon: Users },
   { href: "/agent", label: "Agente", icon: Sparkles },
+  { href: "/media", label: "Multimedia", icon: Images },
   { href: "/automation", label: "Automatización", icon: Workflow },
   { href: "/lab", label: "Laboratorio", icon: FlaskConical },
 ];
