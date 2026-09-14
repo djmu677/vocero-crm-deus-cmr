@@ -53,9 +53,21 @@ describe("P03 · validador determinista del pipeline", () => {
     expect(resolveBotStage("En conversación", stages[0]!, stages)).toEqual({
       ok: false,
       reason: "insufficient_evidence",
-      missingEvidence: ["commercial_question", "product_identified"],
+      missingEvidence: [
+        "commercial_question",
+        "product_identified",
+        "four_customer_turns",
+      ],
       blockerCodes: ["generic_question_only"],
     });
+  });
+
+  it("la cuarta intervención del cliente permite En conversación", () => {
+    expect(
+      resolveBotStage("En conversación", stages[0]!, stages, [
+        "four_customer_turns",
+      ])
+    ).toMatchObject({ ok: true, target: stages[1] });
   });
 
   it("Interesado exige producto y además una señal de compra", () => {
@@ -74,7 +86,7 @@ describe("P03 · validador determinista del pipeline", () => {
     });
   });
 
-  it("Pedido enumera cada dato obligatorio que falta", () => {
+  it("Pedido no exige detalles operativos después de una confirmación clara", () => {
     const result = resolveBotStage("Pedido", stages[2]!, stages, [
       "product_identified",
       "order_confirmation",
@@ -82,24 +94,13 @@ describe("P03 · validador determinista del pipeline", () => {
     ]);
 
     expect(result).toEqual({
-      ok: false,
-      reason: "insufficient_evidence",
-      missingEvidence: [
-        "quantity_confirmed",
-        "configuration_complete",
-        "delivery_address",
-        "recipient_confirmed",
-      ],
-      blockerCodes: [
-        "missing_quantity",
-        "missing_configuration",
-        "missing_delivery_address",
-        "missing_recipient",
-      ],
+      ok: true,
+      target: stages[3],
+      evidence: ["product_identified", "order_confirmation", "delivery_commune"],
     });
   });
 
-  it("permite Pedido solo cuando el pedido es ejecutable", () => {
+  it("permite Pedido cuando el producto y la intención están confirmados", () => {
     const evidence = [
       "product_identified",
       "order_confirmation",
@@ -152,7 +153,7 @@ describe("P03 · validador determinista del pipeline", () => {
     expect(semanticStageForName("Conversando")).toBeNull();
   });
 
-  it("el caso Napoleón queda en Interesado y no alcanza Pedido", () => {
+  it("el caso Napoleón alcanza Pedido al confirmar que desea comprar", () => {
     const interestEvidence = ["product_identified", "product_preference"] as const;
     expect(
       resolveBotStage("Interesado", stages[1]!, stages, interestEvidence).ok
@@ -163,16 +164,7 @@ describe("P03 · validador determinista del pipeline", () => {
       "order_confirmation",
       "delivery_commune",
     ]);
-    expect(orderAttempt).toMatchObject({
-      ok: false,
-      reason: "insufficient_evidence",
-      blockerCodes: expect.arrayContaining([
-        "missing_quantity",
-        "missing_configuration",
-        "missing_delivery_address",
-        "missing_recipient",
-      ]),
-    });
+    expect(orderAttempt).toMatchObject({ ok: true, target: stages[3] });
   });
 
   it("la identidad comercial permanece válida aunque cambie el nombre visible", () => {
