@@ -106,7 +106,6 @@ const ADMIN_ITEMS: NavItem[] = [
     label: "Configuración",
     icon: Settings,
     match: [
-      "/settings",
       "/settings/branding",
       "/settings/calendar",
       "/settings/ads",
