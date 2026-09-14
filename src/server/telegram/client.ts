@@ -4,10 +4,15 @@ type TelegramEnvelope<T> = {
   ok: boolean;
   result?: T;
   description?: string;
+  parameters?: { retry_after?: number };
 };
 
 export class TelegramApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfterSeconds?: number
+  ) {
     super(message);
     this.name = "TelegramApiError";
   }
@@ -32,7 +37,8 @@ async function telegramRequest<T>(
   if (!response.ok || !payload?.ok || payload.result === undefined) {
     throw new TelegramApiError(
       payload?.description || "Telegram no aceptó la solicitud",
-      response.status
+      response.status,
+      payload?.parameters?.retry_after
     );
   }
   return payload.result;
