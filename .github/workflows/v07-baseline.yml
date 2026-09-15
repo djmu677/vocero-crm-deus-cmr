@@ -1,0 +1,53 @@
+name: V07 Baseline
+
+on:
+  push:
+    branches:
+      - feature/v07-visual-regression
+
+permissions:
+  contents: write
+
+jobs:
+  baseline:
+    name: fijar capturas base V07
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CHANNELS: "whatsapp,instagram,messenger"
+      AGENDA: "on"
+      PARLEY_VISUAL_TEST: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      TZ: America/Santiago
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/v07-visual-regression
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: instalar Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: build visual
+        run: pnpm build
+      - name: generar capturas base
+        run: pnpm test:visual
+        env:
+          VISUAL_UPDATE: "1"
+      - name: guardar baseline en la rama V07
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/visual/baseline/*.png
+          if git diff --cached --quiet; then
+            echo "Las capturas base ya están versionadas."
+            exit 0
+          fi
+          git commit -m "test: fijar capturas base V07"
+          git push origin HEAD:feature/v07-visual-regression
