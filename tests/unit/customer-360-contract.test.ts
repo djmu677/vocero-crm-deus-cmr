@@ -54,7 +54,7 @@ describe("C01 · ficha 360 del cliente", () => {
 
   it("expone la ficha desde la lista normal de contactos", () => {
     expect(contactsSource).toContain("href={`/contacts/${c.id}`}");
-    expect(contactsSource).toContain(">Ficha<");
+    expect(contactsSource).toMatch(/<Button[^>]*variant="ghost"[^>]*size="sm"[^>]*>\s*Ficha\s*<\/Button>/s);
   });
 
   it("mantiene C01 en modo lectura y no inventa tareas ni responsable", () => {
