@@ -5,16 +5,21 @@ import {
   MediaLibrarySection,
   type AgentMedia,
 } from "@/components/agent/agent-client";
+import { ErrorState, LoadingState } from "@/components/ui/states";
 
 export function MediaLibraryClient() {
   const [assets, setAssets] = useState<AgentMedia[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     const payload = await fetch("/api/agent/media")
       .then((response) => (response.ok ? response.json() : null))
       .catch(() => null);
     if (payload) setAssets(payload.assets);
+    else setError("No pudimos obtener los archivos aprobados. Revisa tu conexión e inténtalo nuevamente.");
     setLoading(false);
   }, []);
 
@@ -35,8 +40,16 @@ export function MediaLibraryClient() {
       </header>
 
       {loading ? (
-        <div className="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
-          Cargando…
+        <div className="p-4 sm:p-6">
+          <LoadingState label="Cargando biblioteca multimedia…" />
+        </div>
+      ) : error ? (
+        <div className="p-4 sm:p-6">
+          <ErrorState
+            title="No se pudo cargar la biblioteca"
+            description={error}
+            onRetry={() => void refetch()}
+          />
         </div>
       ) : (
         <div className="p-4 sm:p-6">

@@ -3,8 +3,16 @@
 import { useEffect, useState } from "react";
 import type { SourceValue, StageDto } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 
 const SOURCES: { value: SourceValue; label: string }[] = [
   { value: "referido", label: "Referido" },
@@ -94,27 +102,28 @@ export function NewContactDialog({
   const listo = name.trim().length > 0 && phone.replace(/\D/g, "").length >= 11;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      onClick={onClose}
+    <Dialog
+      open
+      onClose={onClose}
+      title="Nuevo contacto"
+      description="Para prospectos que no llegaron por WhatsApp: referidos, gente que te escribió por otra red o conocidos."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={!listo || saving || stages.length === 0}
+            onClick={() => void guardar()}
+          >
+            {saving ? "Guardando…" : "Crear contacto"}
+          </Button>
+        </>
+      }
     >
-      <div
-        role="dialog"
-        aria-label="Nuevo contacto"
-        className="w-full max-w-md rounded-lg border bg-card p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-1 font-semibold">Nuevo contacto</h3>
-        <p className="mb-4 text-xs text-text-3">
-          Para prospectos que no llegaron por WhatsApp: referidos, gente que te
-          escribió por otra red, conocidos.
-        </p>
-
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="nc-name">
-              Nombre
-            </label>
+            <Label htmlFor="nc-name">Nombre</Label>
             <Input
               id="nc-name"
               value={name}
@@ -124,9 +133,7 @@ export function NewContactDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="nc-phone">
-              Teléfono con código de país
-            </label>
+            <Label htmlFor="nc-phone">Teléfono con código de país</Label>
             <Input
               id="nc-phone"
               value={phone}
@@ -143,45 +150,37 @@ export function NewContactDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="nc-source">
-                ¿De dónde salió?
-              </label>
-              <select
+              <Label htmlFor="nc-source">¿De dónde salió?</Label>
+              <Select
                 id="nc-source"
                 value={source}
                 onChange={(e) => setSource(e.target.value as SourceValue)}
-                className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
               >
                 {SOURCES.map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="nc-stage">
-                Etapa inicial
-              </label>
-              <select
+              <Label htmlFor="nc-stage">Etapa inicial</Label>
+              <Select
                 id="nc-stage"
                 value={stageId}
                 onChange={(e) => setStageId(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
               >
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="nc-notes">
-              Notas (opcional)
-            </label>
+            <Label htmlFor="nc-notes">Notas (opcional)</Label>
             <Textarea
               id="nc-notes"
               rows={3}
@@ -193,11 +192,12 @@ export function NewContactDialog({
         </div>
 
         {duplicado && (
-          <div className="mt-3 rounded-md border border-warning-soft bg-warning-tint px-3 py-2.5">
-            <p className="text-[13px] text-warning-text">
+          <Alert variant="warning" className="mt-3">
+            <AlertTitle>Contacto existente</AlertTitle>
+            <AlertDescription>
               Ese teléfono ya es de <strong>{duplicado.name}</strong>. No se creó
               un duplicado.
-            </p>
+            </AlertDescription>
             <Button
               size="sm"
               variant="secondary"
@@ -206,28 +206,22 @@ export function NewContactDialog({
             >
               Abrir su conversación
             </Button>
-          </div>
+          </Alert>
         )}
-        {error && <p className="mt-3 text-xs text-danger-text">{error}</p>}
+        {error && (
+          <Alert variant="danger" className="mt-3">
+            <AlertTitle>No se pudo crear el contacto</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {stages.length === 0 && (
-          <p className="mt-3 text-xs text-warning-text">
-            Tu embudo no tiene etapas abiertas. Crea una en el Pipeline antes de
-            capturar contactos.
-          </p>
+          <Alert variant="warning" className="mt-3">
+            <AlertTitle>Falta una etapa abierta</AlertTitle>
+            <AlertDescription>
+              Crea una en el Pipeline antes de capturar contactos.
+            </AlertDescription>
+          </Alert>
         )}
-
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={!listo || saving || stages.length === 0}
-            onClick={() => void guardar()}
-          >
-            {saving ? "Guardando…" : "Crear contacto"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

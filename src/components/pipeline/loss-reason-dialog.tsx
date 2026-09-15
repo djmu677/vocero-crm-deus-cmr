@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { LOSS_REASON_LABEL, type LossReason } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 const REASONS = Object.keys(LOSS_REASON_LABEL) as LossReason[];
@@ -26,22 +28,31 @@ export function LossReasonDialog({
   const [note, setNote] = useState("");
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      onClick={onCancel}
-    >
-      <div
-        role="dialog"
-        aria-label="Motivo de pérdida"
-        className="w-full max-w-md rounded-lg border bg-card p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-1 font-semibold">¿Por qué se perdió?</h3>
-        <p className="mb-4 text-xs text-text-3">
+    <Dialog
+      open
+      onClose={onCancel}
+      title="¿Por qué se perdió?"
+      description={
+        <>
           {leadName} pasa a Perdido. El motivo es lo único que después explica
           qué cambiar: sin él, la gráfica de pérdidas no dice nada.
-        </p>
-
+        </>
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={onCancel}>
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={!reason}
+            onClick={() => reason && onConfirm(reason, note.trim())}
+          >
+            Marcar como perdido
+          </Button>
+        </>
+      }
+    >
         <div className="space-y-2">
           {REASONS.map((r) => (
             <button
@@ -61,9 +72,7 @@ export function LossReasonDialog({
         </div>
 
         <div className="mt-3 space-y-1.5">
-          <label className="text-sm font-medium" htmlFor="loss-note">
-            Nota (opcional)
-          </label>
+          <Label htmlFor="loss-note">Nota (opcional)</Label>
           <Textarea
             id="loss-note"
             value={note}
@@ -73,19 +82,6 @@ export function LossReasonDialog({
             placeholder="Se fue con una agencia local por la mitad del precio"
           />
         </div>
-
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={!reason}
-            onClick={() => reason && onConfirm(reason, note.trim())}
-          >
-            Marcar como perdido
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
