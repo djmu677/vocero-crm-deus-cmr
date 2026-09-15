@@ -13,6 +13,10 @@ const viewSource = readFileSync(
   "src/components/contacts/customer-360-client.tsx",
   "utf8"
 );
+const contactsSource = readFileSync(
+  "src/components/contacts/contacts-client.tsx",
+  "utf8"
+);
 
 describe("C01 · ficha 360 del cliente", () => {
   it("aísla todas las lecturas comerciales por organización", () => {
@@ -46,6 +50,11 @@ describe("C01 · ficha 360 del cliente", () => {
     }
     expect(viewSource).toContain('label="Responsable"');
     expect(viewSource).toContain('label="Fuente"');
+  });
+
+  it("expone la ficha desde la lista normal de contactos", () => {
+    expect(contactsSource).toContain("href={`/contacts/${c.id}`}");
+    expect(contactsSource).toContain(">Ficha<");
   });
 
   it("mantiene C01 en modo lectura y no inventa tareas ni responsable", () => {
