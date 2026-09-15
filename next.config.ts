@@ -7,10 +7,26 @@ const { version } = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf8")
 ) as { version: string };
 
+const visualTest = process.env.PARLEY_VISUAL_TEST === "1";
+
 const nextConfig: NextConfig = {
   // standalone es para la imagen Docker (Linux). En Windows el trazado crea
-  // symlinks que requieren permisos elevados, así que ahí se omite.
-  output: process.platform === "win32" ? undefined : "standalone",
+  // symlinks que requieren permisos elevados. V07 también lo omite en su build
+  // efímero porque el runner visual usa `next start`; producción sigue
+  // construyéndose como standalone.
+  output: process.platform === "win32" || visualTest ? undefined : "standalone",
+  // V07: Next trata los directorios que empiezan con `_` como privados. El
+  // runner conserva sus URLs /__visual/* y solo durante el build visual se
+  // reescriben a rutas públicas internas protegidas por PARLEY_VISUAL_TEST.
+  async rewrites() {
+    if (!visualTest) return [];
+    return [
+      {
+        source: "/__visual/:path*",
+        destination: "/visual-test/:path*",
+      },
+    ];
+  },
   // El paquete `postgres` usa APIs de Node que no deben empaquetarse en el bundle.
   serverExternalPackages: ["postgres"],
   // Se congelan al construir: el binario lleva dentro de qué código salió, así
