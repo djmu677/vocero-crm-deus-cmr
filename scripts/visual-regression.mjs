@@ -399,6 +399,7 @@ async function captureCase(browser, testCase, failures) {
     hasTouch: testCase.mobile,
   });
   const page = await context.newPage();
+  await page.clock.setFixedTime(new Date("2026-09-15T14:00:00.000Z"));
   const unexpected = new Set();
   await installFixtures(page, unexpected);
 
