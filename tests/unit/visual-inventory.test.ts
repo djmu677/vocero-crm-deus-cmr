@@ -107,15 +107,15 @@ describe("V01 — inventario visual de Parley", () => {
     expect(inventory).toContain("Identificadores históricos que V02 debe conservar");
   });
 
-  it("congela los conteos del diagnóstico para detectar un inventario obsoleto", () => {
+  it("actualiza la deuda visual después de la migración V05", () => {
     expect(
       countInFiles("border-b px-4 py-3 sm:px-6 sm:py-4", UI_FILES)
     ).toBe(7);
     expect(
       countInFiles("text-[17px] font-bold tracking-tight", UI_FILES)
     ).toBe(9);
-    expect(countInFiles("<select", UI_FILES)).toBe(11);
-    expect(countInFiles("fixed inset-0", UI_FILES)).toBe(9);
+    expect(countInFiles("<select", UI_FILES)).toBe(6);
+    expect(countInFiles("fixed inset-0", UI_FILES)).toBe(2);
     expect(countInFiles("bg-knob shadow-sm transition-transform", UI_FILES)).toBe(4);
   });
 });

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { formatMoneyCents, parseMoneyToCents } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PriorityPicker } from "./priority-picker";
 import type { PriorityValue } from "@/lib/types";
 
@@ -41,19 +43,26 @@ export function AmountDialog({
   const invalido = texto.trim().length > 0 && parsed === null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Monto y prioridad"
+    <Dialog
+      open
+      onClose={onCancel}
+      title="Monto y prioridad"
+      description={leadName}
+      className="max-w-sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onCancel}>
+            Cancelar
+          </Button>
+          <Button disabled={invalido} onClick={() => onSave(parsed)}>
+            Guardar cambios
+          </Button>
+        </>
+      }
     >
-      <div className="w-full max-w-sm rounded-lg border bg-card p-4 shadow-pop">
-        <h3 className="font-semibold">Monto y prioridad</h3>
-        <p className="mt-0.5 text-xs text-text-3">{leadName}</p>
-
-        <label className="mt-3 block text-xs font-medium" htmlFor="monto">
+        <Label className="block" htmlFor="monto">
           Cuánto vale este trato ({currency})
-        </label>
+        </Label>
         <Input
           id="monto"
           value={texto}
@@ -82,15 +91,6 @@ export function AmountDialog({
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button disabled={invalido} onClick={() => onSave(parsed)}>
-            Guardar
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -12,6 +13,18 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { Select } from "@/components/ui/select";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /**
  * 016 — Ajustes → Anuncios: conectar el dataset de Meta, decir qué etapa
@@ -71,10 +84,17 @@ export function AdsClient() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   const loadActivity = useCallback(async () => {
+    setActivityError(null);
     const res = await fetch("/api/settings/capi/events").catch(() => null);
-    if (!res?.ok) return setActivity([]);
+    if (!res?.ok) {
+      setActivityError("No pudimos consultar los eventos enviados a Meta.");
+      setActivity([]);
+      return;
+    }
     const data = (await res.json()) as { events: ActivityRow[] };
     setActivity(data.events);
   }, []);
@@ -139,6 +159,7 @@ export function AdsClient() {
     setToken("");
     setQualifiedStageId("");
     setSaved(false);
+    setConfirmDisconnect(false);
   }
 
   return (
@@ -195,11 +216,10 @@ export function AdsClient() {
 
           <div className="space-y-1.5">
             <Label htmlFor="capi-stage">¿Qué etapa es un lead calificado?</Label>
-            <select
+            <Select
               id="capi-stage"
               value={qualifiedStageId}
               onChange={(e) => setQualifiedStageId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
             >
               <option value="">No reportar leads calificados</option>
               {stages
@@ -209,19 +229,25 @@ export function AdsClient() {
                     {s.name}
                   </option>
                 ))}
-            </select>
+            </Select>
             <p className="text-xs text-muted-foreground">
               La venta se reporta sola cuando el trato entra a tu etapa ganada.
             </p>
           </div>
 
           {error ? (
-            <p className="text-sm text-danger-text" role="alert">
-              {error}
-            </p>
+            <Alert variant="danger">
+              <AlertTitle>No se pudo guardar</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : null}
           {saved ? (
-            <p className="text-sm text-success-text">Guardado.</p>
+            <Alert variant="success">
+              <AlertTitle>Configuración guardada</AlertTitle>
+              <AlertDescription>
+                Los próximos avances usarán esta conexión con Meta.
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           <div className="flex gap-2">
@@ -229,7 +255,11 @@ export function AdsClient() {
               {saving ? "Guardando…" : "Guardar"}
             </Button>
             {capi ? (
-              <Button variant="outline" onClick={disconnect} disabled={saving}>
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDisconnect(true)}
+                disabled={saving}
+              >
                 Desconectar
               </Button>
             ) : null}
@@ -250,55 +280,71 @@ export function AdsClient() {
             Actualizar
           </Button>
           {activity === null ? (
-            <p className="text-sm text-muted-foreground">Cargando…</p>
+            <LoadingState label="Cargando actividad de Meta…" />
+          ) : activityError ? (
+            <ErrorState
+              title="No se pudo cargar la actividad"
+              description={activityError}
+              onRetry={() => void loadActivity()}
+            />
           ) : activity.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Todavía no hay conversiones. Aparecerán cuando un lead que llegó
-              por un anuncio avance de etapa.
-            </p>
+            <EmptyState
+              title="Todavía no hay conversiones"
+              description="Aparecerán cuando un lead que llegó por un anuncio avance de etapa."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="kicker text-left">
+            <TableContainer>
+              <Table>
+                <TableHeader>
                   <tr>
-                    <th className="py-2 pr-3 font-medium">Evento</th>
-                    <th className="py-2 pr-3 font-medium">Contacto</th>
-                    <th className="py-2 pr-3 font-medium">Estado</th>
-                    <th className="py-2 pr-3 font-medium">Cuándo</th>
-                    <th className="py-2 font-medium">Detalle</th>
+                    <TableHead>Evento</TableHead>
+                    <TableHead>Contacto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Cuándo</TableHead>
+                    <TableHead>Detalle</TableHead>
                   </tr>
-                </thead>
-                <tbody>
+                </TableHeader>
+                <TableBody>
                   {activity.map((row) => (
-                    <tr key={row.id} className="border-t align-top">
-                      <td className="py-2 pr-3">
+                    <TableRow key={row.id}>
+                      <TableCell>
                         {EVENT_LABEL[row.eventName] ?? row.eventName}
                         {row.adHeadline ? (
                           <span className="block text-xs text-muted-foreground">
                             {row.adHeadline}
                           </span>
                         ) : null}
-                      </td>
-                      <td className="py-2 pr-3">{row.contactName ?? "—"}</td>
-                      <td className="py-2 pr-3">
+                      </TableCell>
+                      <TableCell>{row.contactName ?? "—"}</TableCell>
+                      <TableCell>
                         <Badge variant={STATUS_VARIANT[row.status]}>
                           {STATUS_LABEL[row.status]}
                         </Badge>
-                      </td>
-                      <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
                         {new Date(row.at).toLocaleString()}
-                      </td>
-                      <td className="py-2 text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
                         {row.error ?? row.fbTraceId ?? "—"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={confirmDisconnect}
+        onClose={() => setConfirmDisconnect(false)}
+        onConfirm={() => void disconnect()}
+        title="Desconectar Meta"
+        description="Parley dejará de enviar nuevas conversiones hasta que vuelvas a conectar el dataset."
+        confirmLabel="Desconectar"
+        destructive
+        busy={saving}
+      />
     </div>
   );
 }

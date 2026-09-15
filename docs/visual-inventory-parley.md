@@ -113,28 +113,29 @@ contenido, no imponer un ancho único a todas las pantallas.
 
 ## Repeticiones e inconsistencias verificadas
 
-El conteo corresponde al código de `f6e5971` y queda protegido por
+El conteo original corresponde al código de `f6e5971`. V05 conserva ese punto
+de partida y registra también la deuda restante; ambos quedan protegidos por
 `tests/unit/visual-inventory.test.ts`.
 
 | Hallazgo | Conteo | Archivos o alcance | Componente común recomendado |
 |---|---:|---|---|
 | Cabecera genérica repetida | 7 | Lab, Pipeline, Multimedia, Agente, Automatización, Citas y Configuración | `PageHeader` con título, descripción, acciones y variante compacta. |
 | Título de página con la misma clase | 9 | Los anteriores más Bandeja y Contactos | Parte de `PageHeader`. |
-| `<select>` nativo con estilos locales | 11 en 9 archivos | Bandeja, plantillas, pipeline, contactos y ajustes | `Select` accesible con tamaños comunes. |
+| `<select>` nativo con estilos locales | 11 originalmente; 6 tras V05 | Bandeja, plantillas y ajustes aún especializados | Continuar migrando a `Select` cuando se intervenga cada módulo. |
 | `<textarea>` directo fuera de la primitiva | 4 | Compositor y Cotizador | Reutilizar `Textarea` o documentar una variante especializada. |
-| Overlays `fixed inset-0` | 9 en 8 archivos | Navegación, paneles, pipeline y contactos | `Dialog` para modales y `Drawer` para paneles; no combinarlos. |
+| Overlays `fixed inset-0` | 9 originalmente; 2 tras V05 | Navegación móvil y panel adaptable de Bandeja | Son superficies estructurales; se revisarán en V06. |
 | Switch visual implementado a mano | 4 en 2 archivos | Agente y panel de contacto | `Switch` con teclado, foco y estados disabled. |
 | Alertas de estado construidas localmente | Varias | WhatsApp, Messenger, Equipo, Agente, Inbox y Pipeline | `Alert` con variantes success, warning, danger e info. |
 | Estados de carga/vacío locales | Varias | Multimedia, Automatización, Lab, Contactos y otros | `LoadingState` y `EmptyState`. |
 
 ### Accesibilidad de diálogos
 
-Los diálogos no siguen una sola convención. `AmountDialog`, `LeadDrawer`,
-`LossReasonDialog`, `NewContactDialog` y “Escribir primero” declaran al menos
-parte de `role`, `aria-label` o `aria-modal`; `StageManager` y “Editar contacto”
-no completan ese contrato. Tampoco existe una primitiva común que gestione
-foco inicial, bloqueo de fondo, Escape y devolución del foco. V02 debe
-resolverlo sin cambiar la acción que ejecuta cada diálogo.
+V05 resolvió la inconsistencia de los diálogos operativos. `AmountDialog`,
+`LeadDrawer`, `LossReasonDialog`, `NewContactDialog`, `StageManager`, “Editar
+contacto” y “Escribir primero” consumen ahora `Dialog` o `Drawer`, con foco
+inicial, ciclo con Tab, bloqueo del fondo, Escape y devolución del foco. Los dos
+overlays restantes pertenecen a la estructura adaptable de navegación y
+Bandeja, no a formularios modales independientes.
 
 ### Componentes demasiado concentrados
 

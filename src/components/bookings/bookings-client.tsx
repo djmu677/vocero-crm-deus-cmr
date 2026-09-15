@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { useEvents } from "@/components/use-events";
 
 /** 015 — Citas: lo agendado por el operador y por la IA, con sus acciones. */
@@ -42,6 +44,7 @@ export function BookingsClient() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [blockStart, setBlockStart] = useState("");
   const [blockMinutes, setBlockMinutes] = useState(60);
@@ -54,6 +57,7 @@ export function BookingsClient() {
   useEvents({ onBookingUpdated: () => void refresh() });
 
   async function refresh() {
+    setLoadError(null);
     const [list, avail] = await Promise.all([
       fetch("/api/bookings").catch(() => null),
       fetch("/api/calendar/availability").catch(() => null),
@@ -63,6 +67,7 @@ export function BookingsClient() {
       setBookings(data.bookings);
     } else {
       setBookings([]);
+      setLoadError("No pudimos consultar la agenda. Revisa tu conexión e inténtalo nuevamente.");
     }
     if (avail?.ok) {
       const data = (await avail.json()) as { slots: Slot[] };
@@ -114,11 +119,25 @@ export function BookingsClient() {
     await refresh();
   }
 
-  if (!bookings) return <p className="text-sm text-text-3">Cargando…</p>;
+  if (!bookings) return <LoadingState label="Cargando agenda…" />;
+  if (loadError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la agenda"
+        description={loadError}
+        onRetry={() => void refresh()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <Alert variant="danger">
+          <AlertTitle>No se pudo completar la acción</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">Bloquear un rango</h3>
@@ -164,12 +183,13 @@ export function BookingsClient() {
           Agenda <span className="text-text-3">({bookings.length})</span>
         </h3>
         {bookings.length === 0 && (
-          <p className="text-sm text-text-3">
-            Todavía no hay nada agendado. Configura tu horario en Ajustes →
-            Agenda para empezar a recibir citas.
-          </p>
+          <EmptyState
+            title="Todavía no hay nada agendado"
+            description="Configura tu horario en Ajustes → Agenda para empezar a recibir citas y entregas."
+          />
         )}
-        <ul className="divide-y rounded-md border">
+        {bookings.length > 0 && (
+        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border-strong bg-card">
           {bookings.map((b) => (
             <li key={b.id} className="space-y-2 p-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -291,9 +311,10 @@ export function BookingsClient() {
                     </p>
                   )}
                   {slots.map((s) => (
-                    <button
+                    <Button
                       key={s.startUtc}
-                      type="button"
+                      variant="ghost"
+                      size="sm"
                       disabled={busy === b.id}
                       onClick={() =>
                         act(b.id, {
@@ -301,16 +322,17 @@ export function BookingsClient() {
                           startUtc: s.startUtc,
                         })
                       }
-                      className="block w-full rounded-sm px-2 py-1 text-left text-sm hover:bg-accent"
+                      className="flex w-full justify-start rounded-md"
                     >
                       {s.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
             </li>
           ))}
         </ul>
+        )}
       </section>
     </div>
   );

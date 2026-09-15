@@ -16,7 +16,12 @@ import { formatPhone } from "@/lib/utils";
 import { ContactAvatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { Textarea } from "@/components/ui/textarea";
 import { SOURCE_LABELS } from "@/server/contact-source";
 import { priorityRank } from "@/server/leads/priority";
@@ -27,6 +32,8 @@ import { StartConversation } from "./start-conversation";
 export function ContactsClient() {
   const router = useRouter();
   const [contacts, setContacts] = useState<ContactDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState("all");
   const [stages, setStages] = useState<string[]>([]);
@@ -53,12 +60,18 @@ export function ContactsClient() {
   }, []);
 
   const refetch = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
     if (stage !== "all") params.set("stage", stage);
     if (showArchived) params.set("archived", "true");
     const res = await fetch(`/api/contacts?${params}`).catch(() => null);
-    if (!res?.ok) return;
+    if (!res?.ok) {
+      setLoadError("No pudimos obtener los contactos. Revisa tu conexión e inténtalo nuevamente.");
+      setLoading(false);
+      return;
+    }
     const data = (await res.json()) as { contacts: ContactDto[] };
     // A quién llamar primero: alta arriba, sin prioridad al final. El orden lo
     // decide esta lista, no el servidor, porque es una preferencia de trabajo y
@@ -68,6 +81,7 @@ export function ContactsClient() {
         (a, b) => priorityRank(a.priority ?? null) - priorityRank(b.priority ?? null)
       )
     );
+    setLoading(false);
   }, [query, stage, showArchived]);
 
   useEffect(() => {
@@ -94,7 +108,7 @@ export function ContactsClient() {
             Nuevo contacto
           </Button>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
+        <FilterBar>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
@@ -105,11 +119,11 @@ export function ContactsClient() {
             Ver archivados
           </label>
           {stages.length > 0 && (
-            <select
+            <Select
               value={stage}
               onChange={(e) => setStage(e.target.value)}
               aria-label="Filtrar por etapa del embudo"
-              className="h-9 rounded-md border border-input bg-card px-2 text-sm"
+              className="w-auto"
             >
               <option value="all">Toda etapa</option>
               {stages.map((s) => (
@@ -117,7 +131,7 @@ export function ContactsClient() {
                   {s}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           <div className="relative w-full sm:w-auto">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -130,32 +144,59 @@ export function ContactsClient() {
               className="w-full pl-8 sm:w-72"
             />
           </div>
-        </div>
+        </FilterBar>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {contacts.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            {query.trim() || stage !== "all" ? (
-              <>
-                <p className="text-sm font-medium">Sin resultados</p>
-                <p className="max-w-sm text-xs text-muted-foreground">
+        {loading ? (
+          <LoadingState label="Cargando contactos…" className="h-full" />
+        ) : loadError ? (
+          <ErrorState
+            title="No se pudieron cargar los contactos"
+            description={loadError}
+            onRetry={() => void refetch()}
+            className="h-full"
+          />
+        ) : contacts.length === 0 ? (
+          query.trim() || stage !== "all" ? (
+            <EmptyState
+              title="Sin resultados"
+              description={
+                <>
                   Nadie coincide con
                   {query.trim() ? ` «${query.trim()}»` : ""}
                   {query.trim() && stage !== "all" ? " en" : ""}
                   {stage !== "all" ? ` la etapa «${stage}»` : ""}.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium">Sin contactos</p>
-                <p className="max-w-sm text-xs text-muted-foreground">
-                  Cada persona que escriba a tu WhatsApp quedará registrada aquí
-                  automáticamente.
-                </p>
-              </>
-            )}
-          </div>
+                </>
+              }
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setQuery("");
+                    setStage("all");
+                    if (inputRef.current) inputRef.current.value = "";
+                  }}
+                >
+                  Limpiar filtros
+                </Button>
+              }
+              className="h-full"
+            />
+          ) : (
+            <EmptyState
+              title="Sin contactos"
+              description="Cada persona que escriba a tu WhatsApp quedará registrada aquí automáticamente. También puedes crear un contacto manualmente."
+              action={
+                <Button size="sm" onClick={() => setCreando(true)}>
+                  <UserPlus aria-hidden="true" className="h-4 w-4" />
+                  Nuevo contacto
+                </Button>
+              }
+              className="h-full"
+            />
+          )
         ) : (
           <ul className="space-y-2">
             {contacts.map((c) => (
@@ -247,21 +288,12 @@ export function ContactsClient() {
       )}
 
       {escribiendo && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Escribir primero"
+        <Dialog
+          open
+          onClose={() => setEscribiendo(null)}
+          title={`Escribir a ${escribiendo.name}`}
+          description="Meta exige iniciar este contacto con una plantilla aprobada."
         >
-          <div className="w-full max-w-md rounded-lg border bg-card p-4 shadow-pop">
-            <div className="mb-3 flex items-baseline justify-between gap-2">
-              <h3 className="font-semibold">
-                Escribir a {escribiendo.name}
-              </h3>
-              <Button variant="ghost" size="sm" onClick={() => setEscribiendo(null)}>
-                Cerrar
-              </Button>
-            </div>
             <StartConversation
               contactId={escribiendo.id}
               onStarted={() => {
@@ -272,8 +304,7 @@ export function ContactsClient() {
                 router.push(`/inbox?contact=${contactId}`);
               }}
             />
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {creando && (
@@ -304,22 +335,35 @@ function EditDialog({
 }) {
   const [name, setName] = useState(contact.name);
   const [notes, setNotes] = useState(contact.notes ?? "");
+  const [saving, setSaving] = useState(false);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-overlay p-4"
-      onClick={onClose}
+    <Dialog
+      open
+      onClose={onClose}
+      title="Editar contacto"
+      description={contact.name}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={!name.trim() || saving}
+            onClick={async () => {
+              setSaving(true);
+              await onSave({ name: name.trim(), notes });
+              setSaving(false);
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </Button>
+        </>
+      }
     >
-      <div
-        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-lg border bg-card p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-4 font-semibold">Editar contacto</h3>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="edit-name">
-              Nombre
-            </label>
+            <Label htmlFor="edit-name">Nombre</Label>
             <Input
               id="edit-name"
               value={name}
@@ -327,9 +371,7 @@ function EditDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="edit-notes">
-              Notas
-            </label>
+            <Label htmlFor="edit-notes">Notas</Label>
             <Textarea
               id="edit-notes"
               rows={4}
@@ -338,18 +380,6 @@ function EditDialog({
             />
           </div>
         </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={!name.trim()}
-            onClick={() => void onSave({ name: name.trim(), notes })}
-          >
-            Guardar
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

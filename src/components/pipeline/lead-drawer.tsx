@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MessageSquareText, X } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 import type { FichaDto, FichaValue, PriorityValue, StageDto } from "@/lib/types";
 import { formatMoneyCents, parseMoneyToCents } from "@/lib/money";
 import { cn, formatPhone } from "@/lib/utils";
 import { ContactAvatar } from "@/components/avatar";
 import { FichaPanel } from "@/components/ficha-panel";
 import { Button } from "@/components/ui/button";
+import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { PriorityPicker } from "./priority-picker";
 import type { BoardLead } from "./pipeline-client";
@@ -60,16 +61,6 @@ export function LeadDrawer({
     void cargarFicha();
   }, [cargarFicha, lead.amountCents]);
 
-  // Escape cierra: un cajón que solo se cierra con el ratón estorba a quien
-  // revisa el tablero con el teclado.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   async function guardarFicha(patch: Record<string, FichaValue | null>) {
     setFicha((prev) => {
       const next = { ...prev };
@@ -91,34 +82,7 @@ export function LeadDrawer({
   const montoInvalido = monto.trim().length > 0 && montoParseado === null;
 
   return (
-    <>
-      {/* Velo: cerrar tocando fuera es lo que uno intenta primero. */}
-      <button
-        aria-label="Cerrar el trato"
-        tabIndex={-1}
-        onClick={onClose}
-        className="fixed inset-0 z-40 bg-overlay"
-      />
-
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Trato de ${lead.contact.name}`}
-        className="fixed inset-y-0 right-0 z-50 flex w-[min(360px,92vw)] flex-col border-l bg-background shadow-pop"
-      >
-        <header className="flex items-center justify-between border-b px-4 py-3">
-          <h3 className="kicker text-text-2">
-            Trato
-          </h3>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar el panel del trato"
-            className="rounded p-1 text-text-3 hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" strokeWidth={1.7} />
-          </button>
-        </header>
-
+    <Drawer open onClose={onClose} title={`Trato · ${lead.contact.name}`}>
         <div className="flex-1 overflow-y-auto">
           {/* Quién */}
           <section className="border-b p-4">
@@ -256,7 +220,6 @@ export function LeadDrawer({
           {/* Qué se sabe */}
           <FichaPanel ficha={ficha} onSave={guardarFicha} />
         </div>
-      </aside>
-    </>
+    </Drawer>
   );
 }

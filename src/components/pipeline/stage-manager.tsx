@@ -5,7 +5,10 @@ import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import type { StageDto } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 /** Gestión de etapas: renombrar, reordenar, agregar, eliminar (con reasignación). */
 export function StageManager({
@@ -89,15 +92,18 @@ export function StageManager({
   const sorted = [...stages].sort((a, b) => a.position - b.position);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-overlay p-4"
-      onClick={onClose}
+    <Dialog
+      open
+      onClose={onClose}
+      title="Etapas del pipeline"
+      description="Renombra, ordena o agrega etapas sin salir del tablero."
+      className="max-w-lg"
+      footer={
+        <Button variant="ghost" onClick={onClose}>
+          Cerrar
+        </Button>
+      }
     >
-      <div
-        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-4 font-semibold">Etapas del pipeline</h3>
         <ul className="space-y-2">
           {sorted.map((s, i) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -143,15 +149,17 @@ export function StageManager({
         </ul>
 
         {deleting && (
-          <div className="mt-4 rounded-md border border-warning-soft bg-warning-tint p-3">
-            <p className="text-sm text-warning-text">
+          <Alert variant="warning" className="mt-4">
+            <AlertTitle>La etapa contiene tarjetas</AlertTitle>
+            <AlertDescription>
               &quot;{deleting.name}&quot; tiene tarjetas. Elige a dónde moverlas:
-            </p>
+            </AlertDescription>
             <div className="mt-2 flex gap-2">
-              <select
+              <Select
                 value={moveTo}
                 onChange={(e) => setMoveTo(e.target.value)}
-                className="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm"
+                aria-label="Etapa de destino"
+                className="flex-1"
               >
                 <option value="">Etapa destino…</option>
                 {sorted
@@ -161,7 +169,7 @@ export function StageManager({
                       {s.name}
                     </option>
                   ))}
-              </select>
+              </Select>
               <Button
                 variant="destructive"
                 size="sm"
@@ -171,10 +179,15 @@ export function StageManager({
                 Mover y eliminar
               </Button>
             </div>
-          </div>
+          </Alert>
         )}
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && (
+          <Alert variant="danger" className="mt-3">
+            <AlertTitle>No se pudo eliminar la etapa</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="mt-4 flex gap-2 border-t pt-4">
           <Input
@@ -190,12 +203,6 @@ export function StageManager({
           </Button>
         </div>
 
-        <div className="mt-4 flex justify-end">
-          <Button variant="ghost" onClick={onClose}>
-            Cerrar
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
