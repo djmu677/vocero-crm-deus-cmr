@@ -9,8 +9,13 @@ const { version } = JSON.parse(
 
 const nextConfig: NextConfig = {
   // standalone es para la imagen Docker (Linux). En Windows el trazado crea
-  // symlinks que requieren permisos elevados, así que ahí se omite.
-  output: process.platform === "win32" ? undefined : "standalone",
+  // symlinks que requieren permisos elevados. V07 también lo omite en su build
+  // efímero porque el runner visual usa `next start`; producción sigue
+  // construyéndose como standalone.
+  output:
+    process.platform === "win32" || process.env.PARLEY_VISUAL_TEST === "1"
+      ? undefined
+      : "standalone",
   // El paquete `postgres` usa APIs de Node que no deben empaquetarse en el bundle.
   serverExternalPackages: ["postgres"],
   // Se congelan al construir: el binario lleva dentro de qué código salió, así
