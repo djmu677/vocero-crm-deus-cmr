@@ -6,6 +6,7 @@ import { faviconHref } from "@/lib/favicon";
 import { normalizeThemePreference, THEME_COOKIE } from "@/lib/theme";
 import { getBranding } from "@/server/branding";
 import "./globals.css";
+import "./accessibility.css";
 
 // Las tres voces de la marca, las mismas de vocerocrm.com. next/font las
 // descarga en BUILD y las sirve self-hosted (sin CDN en runtime: soberanía).

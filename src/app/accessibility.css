@@ -1,0 +1,103 @@
+/*
+  V06 — Experiencia móvil y accesibilidad.
+
+  Esta capa complementa el sistema visual sin cambiar la lógica de los módulos.
+  Se importa después de globals.css para reforzar contraste, foco, tamaño táctil
+  y reflujo en pantallas estrechas.
+*/
+
+/* `text-3` aparece en metadatos pequeños de Bandeja y Pipeline. Los nuevos
+   tonos superan 4.5:1 también sobre superficies de hover/panel frecuentes. */
+:root {
+  --text-3: #5f6d83;
+}
+
+:root[data-theme="dark"] {
+  --text-3: #7d90ba;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Respaldo visible para controles especializados que aún no consumen una
+   primitiva con ring propio. */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Nombres, teléfonos, URLs y notas no deben forzar el viewport al ampliar
+   texto. Los contenedores con scroll explícito conservan su comportamiento. */
+p,
+li,
+dd,
+dt,
+label,
+button,
+a {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --page-gutter: 1rem;
+  }
+
+  /* 16 px evita el zoom automático de Safari y mantiene formularios legibles. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Objetivo táctil mínimo de 44 × 44 px para acciones y formularios. */
+  button,
+  [role="button"],
+  [role="switch"],
+  a[aria-label],
+  input:not([type="checkbox"]):not([type="radio"]),
+  select {
+    min-height: 44px;
+  }
+
+  button,
+  [role="button"],
+  [role="switch"],
+  a[aria-label] {
+    min-width: 44px;
+  }
+
+  /* El pipeline sigue desplazándose en horizontal, pero una columna no puede
+     ser más ancha que el viewport útil cuando el texto está ampliado. */
+  .snap-start.w-64 {
+    width: min(16rem, calc(100vw - 1.5rem));
+  }
+}
+
+/* Tabletas y otros dispositivos táctiles conservan el mismo mínimo aunque el
+   viewport supere el breakpoint móvil. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  [role="switch"],
+  a[aria-label],
+  input:not([type="checkbox"]):not([type="radio"]),
+  select {
+    min-height: 44px;
+  }
+
+  button,
+  [role="button"],
+  [role="switch"],
+  a[aria-label] {
+    min-width: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
