@@ -78,17 +78,13 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: build visual
         run: pnpm build
-      - name: generar capturas base V07
+      - name: validar regresión visual V07
         run: pnpm test:visual
-        env:
-          VISUAL_UPDATE: "1"
-      - name: guardar capturas V07
-        if: ${{ always() }}
+      - name: guardar diferencias V07
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: visual-captures
-          path: |
-            tests/visual/baseline
-            scratch/visual
+          name: visual-differences
+          path: scratch/visual
           if-no-files-found: warn
           retention-days: 7
