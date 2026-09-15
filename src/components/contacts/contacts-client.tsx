@@ -234,6 +234,11 @@ export function ContactsClient() {
                   </p>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                  <Link href={`/contacts/${c.id}`}>
+                    <Button variant="ghost" size="sm">
+                      Ficha
+                    </Button>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="sm"
