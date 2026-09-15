@@ -403,7 +403,7 @@ async function captureCase(browser, testCase, failures) {
   await installFixtures(page, unexpected);
 
   await page.goto(`${BASE_URL}${testCase.path}`, { waitUntil: "networkidle" });
-  await page.locator("main").waitFor({ state: "visible" });
+  await page.locator("main").first().waitFor({ state: "visible" });
   await page.evaluate(async () => {
     document.documentElement.dataset.theme = "light";
     await document.fonts.ready;
