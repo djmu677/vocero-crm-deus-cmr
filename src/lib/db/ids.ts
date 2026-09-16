@@ -32,6 +32,11 @@ const prefixes = {
   telegramAlertSettings: "tga",
   telegramOrderAlert: "toa",
   quoteCatalogSettings: "qcs",
+  // C02 — clasificación CRM configurable
+  contactTag: "ctg",
+  contactTagAssignment: "cta",
+  contactCustomField: "ccf",
+  contactCustomFieldValue: "cfv",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

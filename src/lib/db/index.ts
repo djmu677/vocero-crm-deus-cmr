@@ -1,7 +1,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { getEnv } from "@/lib/env";
-import * as schema from "./schema";
+import * as coreSchema from "./schema";
+import * as contactMetadataSchema from "./contact-metadata-schema";
+
+export const schema = { ...coreSchema, ...contactMetadataSchema };
 
 /**
  * Cliente de BD único por proceso. En dev, Next recarga módulos: se cachea en
@@ -30,5 +33,3 @@ export function getDb() {
   if (!cachedDb) cachedDb = drizzle(getSql(), { schema });
   return cachedDb;
 }
-
-export { schema };
