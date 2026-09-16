@@ -29,11 +29,13 @@ export const PUT = withAuth(async (session, req: Request, ctx: Params) => {
   const body = await parseBody(req, saveSchema);
   if (!body.ok) return body.response;
   try {
-    const metadata = await replaceContactMetadata(
-      session.organizationId,
-      id,
-      body.data
-    );
+    const metadata = await replaceContactMetadata(session.organizationId, id, {
+      tagIds: body.data.tagIds,
+      values: body.data.values.map((item) => ({
+        fieldId: item.fieldId,
+        value: item.value,
+      })),
+    });
     return Response.json({ metadata });
   } catch (error) {
     if (error instanceof ContactMetadataError) {
